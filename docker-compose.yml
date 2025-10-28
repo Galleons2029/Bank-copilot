@@ -1,0 +1,106 @@
+services:
+  mq:
+    image: rabbitmq:4-management
+    container_name: mq
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    volumes:
+      - ./rabbitmq/data/:/var/lib/rabbitmq/
+      - ./rabbitmq/log/:/var/log/rabbitmq
+    restart: always
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    expose:
+      - "6333"
+      - "6334"
+      - "6335"
+    volumes:
+      - qdrant-data:/qdrant_data
+    restart: always
+
+#  sql_service:
+#    image: timescale/timescaledb:latest-pg17
+#    environment:
+#      - POSTGRES_USER=time-user
+#      - POSTGRES_PASSWORD=time-pw
+#      - POSTGRES_DB=timescaledb
+#    ports:
+#      - "5433:5432"
+#    expose:
+#      - 5433
+#    volumes:
+#      - timescaledb_data:/var/lib/postgresql/data
+  sql_service:
+    image: postgres
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+
+  dragonfly:
+    image: 'docker.dragonflydb.io/dragonflydb/dragonfly'
+    # Use below command if can't pull the image directly:
+    # sudo docker run --network=host --ulimit memlock=-1 docker.dragonflydb.io/dragonflydb/dragonfly
+    ulimits:
+      memlock: -1
+    ports:
+      - "6381:6379"
+    # For better performance, consider `host` mode instead `port` to avoid docker NAT.
+    # `host` mode is NOT currently supported in Swarm Mode.
+    # https://docs.docker.com/compose/compose-file/compose-file-v3/#network_mode
+    # network_mode: "host"
+    volumes:
+      - dragonflydata:/data
+
+
+  feature_pipeline:
+    container_name: MiniCascade-feature-pipeline
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile.feature_pipeline
+    environment:
+      BYTEWAX_PYTHON_FILE_PATH: "main:flow"
+      DEBUG: "false"
+      BYTEWAX_KEEP_CONTAINER_ALIVE: "true"
+    env_file:
+      - .env
+    depends_on:
+      - mq
+      - qdrant
+    restart: always
+
+  app:
+    container_name: MiniCascade-backend
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile.app
+    environment:
+      DEBUG: "false"
+    env_file:
+      - .env
+    depends_on:
+      - dragonfly
+      - mq
+      - qdrant
+    restart: always
+
+
+
+volumes:
+  qdrant-data:
+  #timescaledb_data:
+  dragonflydata:
+  pgdata:

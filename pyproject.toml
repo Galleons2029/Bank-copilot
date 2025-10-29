@@ -1,5 +1,5 @@
 [project]
-name = "MiniCascade-RAG"
+name = "Bank-copilot"
 version = "0.1.0"
 description = "Build for Enterprise-level RAG System"
 readme = "README.md"

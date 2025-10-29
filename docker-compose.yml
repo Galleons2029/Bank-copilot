@@ -50,24 +50,24 @@ services:
       - pgdata:/var/lib/postgresql/data
 
 
-  dragonfly:
-    image: 'docker.dragonflydb.io/dragonflydb/dragonfly'
-    # Use below command if can't pull the image directly:
-    # sudo docker run --network=host --ulimit memlock=-1 docker.dragonflydb.io/dragonflydb/dragonfly
-    ulimits:
-      memlock: -1
-    ports:
-      - "6381:6379"
-    # For better performance, consider `host` mode instead `port` to avoid docker NAT.
-    # `host` mode is NOT currently supported in Swarm Mode.
-    # https://docs.docker.com/compose/compose-file/compose-file-v3/#network_mode
-    # network_mode: "host"
-    volumes:
-      - dragonflydata:/data
+#  dragonfly:
+#    image: 'docker.dragonflydb.io/dragonflydb/dragonfly'
+#    # Use below command if can't pull the image directly:
+#    # sudo docker run --network=host --ulimit memlock=-1 docker.dragonflydb.io/dragonflydb/dragonfly
+#    ulimits:
+#      memlock: -1
+#    ports:
+#      - "6381:6379"
+#    # For better performance, consider `host` mode instead `port` to avoid docker NAT.
+#    # `host` mode is NOT currently supported in Swarm Mode.
+#    # https://docs.docker.com/compose/compose-file/compose-file-v3/#network_mode
+#    # network_mode: "host"
+#    volumes:
+#      - dragonflydata:/data
 
 
   feature_pipeline:
-    container_name: MiniCascade-feature-pipeline
+    container_name: feature-pipeline
     build:
       context: .
       dockerfile: .docker/Dockerfile.feature_pipeline
@@ -83,7 +83,7 @@ services:
     restart: always
 
   app:
-    container_name: MiniCascade-backend
+    container_name: Bank-copilot-backend
     build:
       context: .
       dockerfile: .docker/Dockerfile.app

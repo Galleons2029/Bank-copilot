@@ -13,7 +13,7 @@ class AppSettings(BaseSettings):
     MONGO_DATABASE_HOST: str = (
         "mongodb://mongo1:30001,mongo2:30002,mongo3:30003/?replicaSet=my-replica-set"
     )
-    MONGO_DATABASE_NAME: str = "twin"
+    MONGO_DATABASE_NAME: str = "bank"
     # Feature flag: allow disabling Mongo usage at runtime (e.g., for local dev)
     DISABLE_MONGO: bool = False
 
@@ -37,7 +37,7 @@ class AppSettings(BaseSettings):
 
     # QdrantDB配置
     QDRANT_CLOUD_URL: str = "str"
-    QDRANT_DATABASE_HOST: str = "localhost" # localhost in local deployment, qdrant in data
+    QDRANT_DATABASE_HOST: str | None = "localhost" # localhost in local deployment, qdrant in data
     QDRANT_DATABASE_PORT: int = 6333
     USE_QDRANT_CLOUD: bool = False
     QDRANT_APIKEY: str | None = None

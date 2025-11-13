@@ -1,6 +1,5 @@
 import concurrent.futures
 
-import opik
 from qdrant_client import models
 #from app.pipeline.feature_pipeline.utils.embeddings import embed_model
 from app.pipeline.feature_pipeline.utils.embeddings import embedd_text_tolist
@@ -145,7 +144,6 @@ class VectorRetriever:
 
         return hits
 
-    @opik.track(name="retriever.rerank")
     def rerank(self, hits: list, keep_top_k: int) -> list[str]:
         content_list = [hit.payload["content"] for hit in hits]
 

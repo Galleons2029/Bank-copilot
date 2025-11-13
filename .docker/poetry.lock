@@ -2711,38 +2711,6 @@ url = "https://pypi.tuna.tsinghua.edu.cn/simple"
 reference = "tsinghua"
 
 [[package]]
-name = "opik"
-version = "1.0.1"
-description = "Comet tool for logging and evaluating LLM traces"
-optional = false
-python-versions = ">=3.8"
-groups = ["main"]
-files = [
-    {file = "opik-1.0.1-py3-none-any.whl", hash = "sha256:8c1ffb7395a12af303480239fdb25e9c442a45d131387f78d07e83f0051e9e8d"},
-    {file = "opik-1.0.1.tar.gz", hash = "sha256:ff6645e1e3dfe210c4d4bb52f5691352d31e9419bd369355faedd17356a9a186"},
-]
-
-[package.dependencies]
-click = "*"
-httpx = "<1.0.0"
-levenshtein = ">=0.25.1,<0.26.0"
-litellm = "*"
-openai = "<2.0.0"
-pandas = ">=2.0.0,<3.0.0"
-pydantic = ">=2.0.0,<3.0.0"
-pydantic-settings = ">=2.0.0,<3.0.0"
-pytest = "*"
-questionary = "*"
-rich = "*"
-tqdm = "*"
-uuid7 = "<1.0.0"
-
-[package.source]
-type = "legacy"
-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
-reference = "tsinghua"
-
-[[package]]
 name = "orderly-set"
 version = "5.5.0"
 description = "Orderly set"

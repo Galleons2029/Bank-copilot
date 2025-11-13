@@ -88,6 +88,8 @@ services:
       DEBUG: "false"
       BYTEWAX_KEEP_CONTAINER_ALIVE: "true"
       DISABLE_MONGO: "true"
+      RABBITMQ_HOST: "mq"
+      QDRANT_DATABASE_HOST: "qdrant"
     env_file:
       - .env
     depends_on:
@@ -103,6 +105,8 @@ services:
     environment:
       DEBUG: "false"
       DISABLE_MONGO: "true"
+      RABBITMQ_HOST: "mq"
+      QDRANT_DATABASE_HOST: "qdrant"
     env_file:
       - .env
     depends_on:

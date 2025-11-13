@@ -160,6 +160,7 @@ class AgentConfig:
         self.LOG_DIR = Path(os.getenv("LOG_DIR", "logs"))
         self.LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
         self.LOG_FORMAT = os.getenv("LOG_FORMAT", "json")  # "json" or "console"
+        self.ENABLE_PIKA_DEBUG = os.getenv("ENABLE_PIKA_DEBUG", "false").lower() in ("true", "1", "t", "yes")
 
         # Postgres Configuration
         self.POSTGRES_URL = os.getenv("POSTGRES_URL", "")
@@ -234,4 +235,3 @@ class AgentConfig:
             # Only override if environment variable wasn't explicitly set
             if env_var_name not in os.environ:
                 setattr(self, key, value)
-

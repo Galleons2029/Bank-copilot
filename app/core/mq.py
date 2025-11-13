@@ -1,4 +1,5 @@
 from typing import Self, List
+import logging
 
 import pika
 from pika.adapters.blocking_connection import BlockingChannel
@@ -7,6 +8,9 @@ from app.core.config import settings
 from app.core.logger_utils import get_logger
 
 logger = get_logger(__file__)
+
+# 禁用 Pika 的调试日志
+logging.getLogger('pika').setLevel(logging.WARNING)
 
 
 class RabbitMQConnection:
@@ -49,6 +53,14 @@ class RabbitMQConnection:
 
     def connect(self):
         try:
+            # 禁用 Pika 的所有子模块日志
+            for logger_name in ['pika', 'pika.connection', 'pika.channel', 
+                               'pika.adapters', 'pika.adapters.utils',
+                               'pika.adapters.utils.io_services_utils',
+                               'pika.adapters.blocking_connection']:
+                logging.getLogger(logger_name).setLevel(logging.ERROR)
+                logging.getLogger(logger_name).propagate = False
+            
             credentials = pika.PlainCredentials(self.username, self.password)
             self._connection = pika.BlockingConnection(
                 pika.ConnectionParameters(

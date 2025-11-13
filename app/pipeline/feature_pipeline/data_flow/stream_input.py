@@ -1,4 +1,5 @@
 import json
+import logging
 import time
 from datetime import datetime
 from typing import Generic, List, Optional, TypeVar
@@ -9,6 +10,9 @@ from app.core import get_logger
 from app.core.mq import RabbitMQConnection
 
 logger = get_logger(__file__)
+
+# 禁用 Pika 的调试日志
+logging.getLogger('pika').setLevel(logging.WARNING)
 
 DataT = TypeVar("DataT")
 MessageT = TypeVar("MessageT")
@@ -21,6 +25,14 @@ class RabbitMQPartition(StatefulSourcePartition, Generic[DataT, MessageT]):
     """
 
     def __init__(self, queue_name: str, resume_state: MessageT | None = None) -> None:
+        # 禁用 Pika 的所有子模块日志
+        for logger_name in ['pika', 'pika.connection', 'pika.channel', 
+                           'pika.adapters', 'pika.adapters.utils',
+                           'pika.adapters.utils.io_services_utils',
+                           'pika.adapters.blocking_connection']:
+            logging.getLogger(logger_name).setLevel(logging.ERROR)
+            logging.getLogger(logger_name).propagate = False
+        
         self._in_flight_msg_ids = resume_state or set()
         self.queue_name = queue_name
         self.connection = RabbitMQConnection()

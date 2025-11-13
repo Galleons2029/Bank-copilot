@@ -6,8 +6,8 @@ services:
       - "5673:5672"
       - "15673:15672"
     volumes:
-      - ./rabbitmq/data/:/var/lib/rabbitmq/
-      - ./rabbitmq/log/:/var/log/rabbitmq
+      - ./data/rabbitmq/data/:/var/lib/rabbitmq/
+      - ./data/rabbitmq/log/:/var/log/rabbitmq
     restart: always
 
   qdrant:
@@ -37,33 +37,45 @@ services:
 #    volumes:
 #      - timescaledb_data:/var/lib/postgresql/data
   sql_service:
-    image: postgres
+    image: ${POSTGRES_IMAGE:-postgres:16}
     container_name: postgres_db
     restart: always
+    env_file:
+      - .env
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: postgres
+      # Fallback defaults if .env is not provided
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+    # command:
+    #   - -c
+    #   - ssl=on
+    #   - -c
+    #   - ssl_cert_file=/var/lib/postgresql/data/server.crt
+    #   - -c
+    #   - ssl_key_file=/var/lib/postgresql/data/server.key
     ports:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      # Place any .sql or .sh files under ./data/postgres/initdb to run once on first init
+      - ./data/postgres/initdb:/data-entrypoint-initdb.d:ro
 
 
-#  dragonfly:
-#    image: 'docker.dragonflydb.io/dragonflydb/dragonfly'
-#    # Use below command if can't pull the image directly:
-#    # sudo docker run --network=host --ulimit memlock=-1 docker.dragonflydb.io/dragonflydb/dragonfly
-#    ulimits:
-#      memlock: -1
-#    ports:
-#      - "6381:6379"
-#    # For better performance, consider `host` mode instead `port` to avoid docker NAT.
-#    # `host` mode is NOT currently supported in Swarm Mode.
-#    # https://docs.docker.com/compose/compose-file/compose-file-v3/#network_mode
-#    # network_mode: "host"
-#    volumes:
-#      - dragonflydata:/data
+  dragonfly:
+    image: 'docker.dragonflydb.io/dragonflydb/dragonfly'
+    # Use below command if can't pull the image directly:
+    # sudo data run --network=host --ulimit memlock=-1 data.dragonflydb.io/dragonflydb/dragonfly
+    ulimits:
+      memlock: -1
+    ports:
+      - "6381:6379"
+    # For better performance, consider `host` mode instead `port` to avoid data NAT.
+    # `host` mode is NOT currently supported in Swarm Mode.
+    # https://docs.docker.com/compose/compose-file/compose-file-v3/#network_mode
+    # network_mode: "host"
+    volumes:
+      - dragonflydata:/data
 
 
   feature_pipeline:
@@ -75,6 +87,7 @@ services:
       BYTEWAX_PYTHON_FILE_PATH: "main:flow"
       DEBUG: "false"
       BYTEWAX_KEEP_CONTAINER_ALIVE: "true"
+      DISABLE_MONGO: "true"
     env_file:
       - .env
     depends_on:
@@ -89,6 +102,7 @@ services:
       dockerfile: .docker/Dockerfile.app
     environment:
       DEBUG: "false"
+      DISABLE_MONGO: "true"
     env_file:
       - .env
     depends_on:

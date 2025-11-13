@@ -6,7 +6,7 @@ from app.configs import llm_config
 from app.core import logger_utils
 #from app.core.opik_utils import add_to_dataset_with_sampling
 from app.core.rag.retriever import VectorRetriever
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 
 #from opik import opik_context
 from app.pipeline.inference_pipeline.prompt_templates import InferenceTemplate

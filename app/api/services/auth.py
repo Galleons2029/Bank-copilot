@@ -33,7 +33,7 @@ from app.models.auth import (
     UserCreate,
     UserResponse,
 )
-from app.core.db.db_services import DatabaseService
+from app.core.db.db_services import database_service as db_service
 from app.utils.auth import (
     create_access_token,
     verify_token,
@@ -46,7 +46,7 @@ from app.utils.sanitization import (
 
 router = APIRouter()
 security = HTTPBearer()
-db_service = DatabaseService()
+# Use shared async database service singleton
 
 
 async def get_current_user(

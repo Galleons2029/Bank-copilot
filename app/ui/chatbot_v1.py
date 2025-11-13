@@ -16,7 +16,7 @@ from app.core.rag.retriever import VectorRetriever
 from app.core.rag.prompt_templates import QueryExpansionTemplate
 from langchain_openai import ChatOpenAI
 from app.core.config import settings
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 
 from app.core import logger_utils
 logger = logger_utils.get_logger(__name__)

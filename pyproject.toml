@@ -3,11 +3,11 @@ name = "Bank-copilot"
 version = "0.1.0"
 description = "Build for Enterprise-level RAG System"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "asgiref>=3.9.1",
     "bcrypt>=4.3.0",
-    "bytewax>=0.21.1",
+    #"bytewax>=0.21.1",
     # "docling>=2.15.1",
     "dashscope>=1.24.1",
     "fastapi>=0.115.12",
@@ -22,8 +22,13 @@ dependencies = [
     "langchain-tavily>=0.2.1",
     "langfuse>=3.2.1",
     "langgraph>=0.4.8",
+    "langgraph-api>=0.5.6",
+    "langgraph-checkpoint>=3.0.1",
     "langgraph-checkpoint-postgres>=2.0.23",
     "langgraph-cli[inmem]>=0.4.0",
+    "langgraph-prebuilt>=1.0.2",
+    "langgraph-runtime-inmem>=0.17.0",
+    "langgraph-sdk>=0.2.9",
     "llama-index>=0.12.37",
     "markitdown>=0.1.2",
     "modelscope>=1.29.1",
@@ -52,9 +57,9 @@ dependencies = [
 
 
 
-[[tool.uv.index]]
-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
-default = true
+#[[tool.uv.index]]
+#url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+#default = true
 
 [dependency-groups]
 dev = [

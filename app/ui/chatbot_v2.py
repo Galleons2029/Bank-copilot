@@ -24,7 +24,7 @@ from app.pipeline.inference_pipeline.prompt_templates import InferenceTemplate
 from app.core.rag.retriever import VectorRetriever
 from app.core.rag.prompt_templates import QueryExpansionTemplate
 from langchain_openai import ChatOpenAI
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 from app.pipeline.inference_pipeline.utils import compute_num_tokens, truncate_text_to_max_tokens
 from pathlib import Path
 from markitdown import MarkItDown

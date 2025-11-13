@@ -14,6 +14,8 @@ class AppSettings(BaseSettings):
         "mongodb://mongo1:30001,mongo2:30002,mongo3:30003/?replicaSet=my-replica-set"
     )
     MONGO_DATABASE_NAME: str = "twin"
+    # Feature flag: allow disabling Mongo usage at runtime (e.g., for local dev)
+    DISABLE_MONGO: bool = False
 
     # 硅基流动API
     Silicon_base_url: str | None = "https://api.siliconflow.cn/v1"
@@ -29,13 +31,13 @@ class AppSettings(BaseSettings):
     # 消息队列配置
     RABBITMQ_DEFAULT_USERNAME: str = "guest"
     RABBITMQ_DEFAULT_PASSWORD: str = "guest"
-    RABBITMQ_HOST: str = "localhost" # localhost in local deployment, mq in docker
+    RABBITMQ_HOST: str = "localhost" # localhost in local deployment, mq in data
     RABBITMQ_PORT: int = 5672
     RABBITMQ_QUEUE_NAME: str = "rag_test"
 
     # QdrantDB配置
     QDRANT_CLOUD_URL: str = "str"
-    QDRANT_DATABASE_HOST: str = "localhost" # localhost in local deployment, qdrant in docker
+    QDRANT_DATABASE_HOST: str = "localhost" # localhost in local deployment, qdrant in data
     QDRANT_DATABASE_PORT: int = 6333
     USE_QDRANT_CLOUD: bool = False
     QDRANT_APIKEY: str | None = None

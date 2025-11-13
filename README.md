@@ -28,8 +28,8 @@ A production-ready Agent platform for bank financial management with LangGraph i
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/Galleons2029/MiniCascade-RAG.git
-cd MiniCascade-RAG
+git clone https://github.com/Galleons2029/Bank-copilot.git
+cd Bank-copilot
 ```
 
 2. Create and activate a virtual environment:
@@ -54,7 +54,7 @@ POSTGRES_URL="postgresql://:your-db-password@POSTGRES_HOST:POSTGRES_PORT/POSTGRE
 
 3. Launch Qdrant：
 ```bash
-docker run -p 6333:6333 -p 6334:6334 \
+data run -p 6333:6333 -p 6334:6334 \
     -v "$(pwd)/qdrant_storage:/qdrant/storage:z" \
     qdrant/qdrant
 ```
@@ -62,14 +62,14 @@ docker run -p 6333:6333 -p 6334:6334 \
 Rabbitmq
 #### latest RabbitMQ 4.x
 ```bash
-docker run -it --rm --name rabbitmq \
+data run -it --rm --name rabbitmq \
     -p 5672:5672 -p 15672:15672 \
     rabbitmq:4-management
 ```
 
 ### Deployment use Docker Compose
 ```bash
-docker compose up
+data compose up
 ```
 
 

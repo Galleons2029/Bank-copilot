@@ -1,12 +1,13 @@
 from fastapi.testclient import TestClient
 
-from app.api.router import app
+from app.main import app
+from app.configs import agent_config as settings
 
 client = TestClient(app)
 
 
 def test_read_item():
-    response = client.get("/items/foo", headers={"X-Token": "coneofsilence"})
+    response = client.get(f"{settings.API_V1_STR}/items/foo", headers={"X-Token": "coneofsilence"})
     assert response.status_code == 200
     assert response.json() == {
         "id": "foo",
@@ -16,20 +17,20 @@ def test_read_item():
 
 
 def test_read_item_bad_token():
-    response = client.get("/items/foo", headers={"X-Token": "hailhydra"})
+    response = client.get(f"{settings.API_V1_STR}/items/foo", headers={"X-Token": "hailhydra"})
     assert response.status_code == 400
     assert response.json() == {"detail": "Invalid X-Token header"}
 
 
 def test_read_nonexistent_item():
-    response = client.get("/items/baz", headers={"X-Token": "coneofsilence"})
+    response = client.get(f"{settings.API_V1_STR}/items/baz", headers={"X-Token": "coneofsilence"})
     assert response.status_code == 404
     assert response.json() == {"detail": "Item not found"}
 
 
 def test_create_item():
     response = client.post(
-        "/items/",
+        f"{settings.API_V1_STR}/items/",
         headers={"X-Token": "coneofsilence"},
         json={"id": "foobar", "title": "Foo Bar", "description": "The Foo Barters"},
     )
@@ -43,7 +44,7 @@ def test_create_item():
 
 def test_create_item_bad_token():
     response = client.post(
-        "/items/",
+        f"{settings.API_V1_STR}/items/",
         headers={"X-Token": "hailhydra"},
         json={"id": "bazz", "title": "Bazz", "description": "Drop the bazz"},
     )
@@ -53,7 +54,7 @@ def test_create_item_bad_token():
 
 def test_create_existing_item():
     response = client.post(
-        "/items/",
+        f"{settings.API_V1_STR}/items/",
         headers={"X-Token": "coneofsilence"},
         json={
             "id": "foo",

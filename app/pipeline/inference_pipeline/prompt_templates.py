@@ -1,6 +1,6 @@
 
 from app.core.rag.prompt_templates import BasePromptTemplate
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 
 
 class InferenceTemplate(BasePromptTemplate):

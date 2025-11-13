@@ -27,7 +27,7 @@ from fastapi.responses import JSONResponse
 from langfuse import Langfuse
 
 from app.api.router import api_router
-from app.core.config import settings
+from app.configs import agent_config as settings
 from app.core.logger_utils import logger
 from app.core.db.db_services import database_service
 
@@ -51,6 +51,8 @@ async def lifespan(app: FastAPI):
         version=settings.VERSION,
         api_prefix=settings.API_V1_STR,
     )
+    # Initialize async database (create tables if needed)
+    await database_service.init()
     yield
     logger.info("application_shutdown")
 

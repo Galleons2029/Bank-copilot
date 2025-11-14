@@ -42,7 +42,8 @@ model = ChatOpenAI(model=settings.MODEL_PATH,
 query_expansion_template = QueryExpansionTemplate()
 prompt = query_expansion_template.create_template(3)
 chain = prompt | model
-client = QdrantClient(url="http://localhost:6333")
+# 使用配置中的 Qdrant 连接信息，兼容 Docker 和本地部署
+client = QdrantClient(host=settings.QDRANT_DATABASE_HOST, port=settings.QDRANT_DATABASE_PORT)
 doc_bases = [collection.name for collection in client.get_collections().collections]
 
 logger = logger_utils.get_logger(__name__)

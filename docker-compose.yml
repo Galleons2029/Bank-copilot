@@ -77,6 +77,15 @@ services:
     volumes:
       - dragonflydata:/data
 
+  falkordb:
+    image: falkordb/falkordb:latest
+    container_name: falkordb
+    ports:
+      - "6379:6379"
+      - "3010:3000"
+    volumes:
+      - ./data/falkordb:/data
+
 
   feature_pipeline:
     container_name: feature-pipeline
@@ -113,6 +122,17 @@ services:
       - dragonfly
       - mq
       - qdrant
+    restart: always
+
+  langgraph:
+    container_name: langgraph-api
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    ports:
+      - "2024:2024"
     restart: always
 
 

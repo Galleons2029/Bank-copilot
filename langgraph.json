@@ -1,7 +1,7 @@
 {
     "dockerfile_lines": [],
     "graphs": {
-      "demo": "./app/core/agent/graph/rag_agent.py:rag_agent"
+      "agent": "./app/core/agent/graph/instructor_agent.py:agent"
     },
     "python_version": "3.11",
     "env": ".env",

@@ -75,4 +75,4 @@ async def ingest_products_data(client: Graphiti):
         )
 
 
-await ingest_products_data(client)
+#await ingest_products_data(client)

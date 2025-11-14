@@ -18,7 +18,8 @@ from qdrant_client import QdrantClient,models
 
 logger = logger_utils.get_logger(__name__)
 
-client = QdrantClient(url="http://localhost:6333")
+# 使用配置中的 Qdrant 连接信息，兼容 Docker 和本地部署
+client = QdrantClient(host=settings.QDRANT_DATABASE_HOST, port=settings.QDRANT_DATABASE_PORT)
 
 collection_name = 'test1'
 try:

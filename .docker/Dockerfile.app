@@ -31,11 +31,10 @@ COPY ./app .
 
 # 7. Expose Port
 # Expose the default port for Gradio applications
-EXPOSE 7860
+EXPOSE 2024
 
 # 8. Set Default Command
 # Run the Gradio application, binding to 0.0.0.0 to make it accessible outside the container
-CMD ["uv", "run", "/app/ui/chatbot_v1.py"]
 
 CMD ["uv", "run", "/app/ui/gradio_chat.py"]
 

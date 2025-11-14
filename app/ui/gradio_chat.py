@@ -16,7 +16,8 @@ ROOT_DIR = str(Path(__file__).parent.parent.parent.parent)
 UPLOAD_FOLDER = os.path.join(ROOT_DIR, "uploads")
 
 
-client = QdrantClient(url="http://localhost:6333")
+# 使用配置中的 Qdrant 连接信息，兼容 Docker 和本地部署
+client = QdrantClient(host=settings.QDRANT_DATABASE_HOST, port=settings.QDRANT_DATABASE_PORT)
 doc_bases = [collection.name for collection in client.get_collections().collections]
 
 

@@ -1,6 +1,6 @@
 # langgraph dockerfile -c langgraph.json Dockerfile
 
-FROM langchain/langgraph-api:3.11
+FROM langchain/langgraph-api:3.12
 
 
 # -- Adding local package . --

@@ -54,6 +54,9 @@ dependencies = [
     "transformers>=4.54.1",
 ]
 
+[tool.setuptools]
+packages = ["app"]
+
 
 
 

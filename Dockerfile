@@ -26,12 +26,17 @@ RUN set -eux; \
 
 # -- Adding local package . --
 COPY pyproject.toml uv.lock README.md ./
+COPY requirements-langgraph.txt ./
 COPY app ./app
 # -- End of local package . --
 
-# -- Installing all local dependencies --
-RUN PYTHONDONTWRITEBYTECODE=1 uv pip install --system --no-cache-dir -c /api/constraints.txt -e . --index-url "${PIP_INDEX_URL}"
-# -- End of local dependencies install --
+# -- Installing minimal dependencies for langgraph agent --
+RUN PYTHONDONTWRITEBYTECODE=1 uv pip install \
+    --system --no-cache-dir \
+    -c /api/constraints.txt \
+    -r requirements-langgraph.txt \
+    --index-url "${PIP_INDEX_URL}"
+# -- End of minimal dependencies install --
 
 # -- Copy the rest of the source after dependency installation for better caching --
 COPY . .

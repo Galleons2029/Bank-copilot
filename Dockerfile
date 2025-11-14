@@ -2,22 +2,37 @@
 
 FROM langchain/langgraph-api:3.12
 
+ARG DEBIAN_MIRROR=mirrors.tuna.tsinghua.edu.cn
+ARG PYPI_MIRROR=https://pypi.tuna.tsinghua.edu.cn/simple
+ARG PYPI_HOST=pypi.tuna.tsinghua.edu.cn
+
+ENV PIP_INDEX_URL=${PYPI_MIRROR} \
+    PIP_TRUSTED_HOST=${PYPI_HOST} \
+    UV_INDEX_URL=${PYPI_MIRROR} \
+    UV_EXTRA_INDEX_URL=${PYPI_MIRROR}
+
+# -- Configure apt to use domestic mirror --
+RUN set -eux; \
+    if [ -f /etc/apt/sources.list ]; then \
+        sed -i "s@deb.debian.org@${DEBIAN_MIRROR}@g" /etc/apt/sources.list; \
+        sed -i "s@security.debian.org@${DEBIAN_MIRROR}@g" /etc/apt/sources.list; \
+    fi
+# -- End of apt mirror configuration --
+
 # -- Configure pip to use Tsinghua mirror --
-RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple && \
-    pip config set install.trusted-host pypi.tuna.tsinghua.edu.cn
+RUN pip config set global.index-url "${PIP_INDEX_URL}" && \
+    pip config set global.trusted-host "${PIP_TRUSTED_HOST}"
 
 # -- Adding local package . --
 ADD . /deps/Bank-copilot
 # -- End of local package . --
 
 # -- Installing all local dependencies --
-RUN export PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple && \
-    export UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple && \
-    for dep in /deps/*; do \
+RUN for dep in /deps/*; do \
         echo "Installing $dep"; \
         if [ -d "$dep" ]; then \
             echo "Installing $dep"; \
-            (cd "$dep" && PYTHONDONTWRITEBYTECODE=1 uv pip install --system --no-cache-dir -c /api/constraints.txt -e . --index-url https://pypi.tuna.tsinghua.edu.cn/simple); \
+            (cd "$dep" && PYTHONDONTWRITEBYTECODE=1 uv pip install --system --no-cache-dir -c /api/constraints.txt -e . --index-url "${PIP_INDEX_URL}"); \
         fi; \
     done
 # -- End of local dependencies install --

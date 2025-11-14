@@ -11,34 +11,33 @@ ENV PIP_INDEX_URL=${PYPI_MIRROR} \
     UV_INDEX_URL=${PYPI_MIRROR} \
     UV_EXTRA_INDEX_URL=${PYPI_MIRROR}
 
-# -- Configure apt to use domestic mirror --
+WORKDIR /deps/Bank-copilot
+
+# -- Configure apt & pip to use domestic mirror --
 RUN set -eux; \
     if [ -f /etc/apt/sources.list ]; then \
         sed -i "s@deb.debian.org@${DEBIAN_MIRROR}@g" /etc/apt/sources.list; \
         sed -i "s@security.debian.org@${DEBIAN_MIRROR}@g" /etc/apt/sources.list; \
-    fi
+    fi; \
+    pip config set global.index-url "${PIP_INDEX_URL}"; \
+    pip config set global.trusted-host "${PIP_TRUSTED_HOST}"; \
+    rm -rf /var/lib/apt/lists/*
 # -- End of apt mirror configuration --
 
-# -- Configure pip to use Tsinghua mirror --
-RUN pip config set global.index-url "${PIP_INDEX_URL}" && \
-    pip config set global.trusted-host "${PIP_TRUSTED_HOST}"
-
 # -- Adding local package . --
-ADD . /deps/Bank-copilot
+COPY pyproject.toml uv.lock README.md ./
+COPY app ./app
 # -- End of local package . --
 
 # -- Installing all local dependencies --
-RUN for dep in /deps/*; do \
-        echo "Installing $dep"; \
-        if [ -d "$dep" ]; then \
-            echo "Installing $dep"; \
-            (cd "$dep" && PYTHONDONTWRITEBYTECODE=1 uv pip install --system --no-cache-dir -c /api/constraints.txt -e . --index-url "${PIP_INDEX_URL}"); \
-        fi; \
-    done
+RUN PYTHONDONTWRITEBYTECODE=1 uv pip install --system --no-cache-dir -c /api/constraints.txt -e . --index-url "${PIP_INDEX_URL}"
 # -- End of local dependencies install --
+
+# -- Copy the rest of the source after dependency installation for better caching --
+COPY . .
+# -- End of copying remaining sources --
+
 ENV LANGSERVE_GRAPHS='{"agent": "/deps/Bank-copilot/app/core/agent/graph/instructor_agent.py:agent"}'
-
-
 
 # -- Ensure user deps didn't inadvertently overwrite langgraph-api
 RUN mkdir -p /api/langgraph_api /api/langgraph_runtime /api/langgraph_license && touch /api/langgraph_api/__init__.py /api/langgraph_runtime/__init__.py /api/langgraph_license/__init__.py
@@ -49,5 +48,3 @@ RUN pip uninstall -y pip setuptools wheel
 RUN rm -rf /usr/local/lib/python*/site-packages/pip* /usr/local/lib/python*/site-packages/setuptools* /usr/local/lib/python*/site-packages/wheel* && find /usr/local/bin -name "pip*" -delete || true
 RUN rm -rf /usr/lib/python*/site-packages/pip* /usr/lib/python*/site-packages/setuptools* /usr/lib/python*/site-packages/wheel* && find /usr/bin -name "pip*" -delete || true
 RUN uv pip uninstall --system pip setuptools wheel && rm /usr/bin/uv /usr/bin/uvx
-
-WORKDIR /deps/Bank-copilot

@@ -1,0 +1,39 @@
+# Version control
+.git
+.github
+.gitignore
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyi
+*.pyz
+*.egg-info/
+build/
+dist/
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+.cache/
+
+# Virtual environments
+.venv/
+venv/
+
+# IDE / tooling
+.idea/
+.vscode/
+.DS_Store
+
+# Environment files / secrets
+.env
+.env.*
+
+# Logs and other local-only data
+logs/
+*.log
+
+# LangGraph local state
+.langgraph_api/

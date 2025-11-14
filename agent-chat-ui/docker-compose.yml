@@ -1,0 +1,20 @@
+services:
+  frontend:
+    container_name: agent-chat-ui
+    build:
+      context: .
+      target: dev
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+      - next-cache:/app/.next
+
+volumes:
+  node_modules:
+  next-cache:

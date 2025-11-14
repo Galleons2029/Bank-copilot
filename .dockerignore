@@ -37,3 +37,20 @@ logs/
 
 # LangGraph local state
 .langgraph_api/
+
+# Frontend project artifacts
+agent-chat-ui/node_modules
+agent-chat-ui/.next
+agent-chat-ui/.turbo
+agent-chat-ui/.vercel
+agent-chat-ui/.pnpm-store
+agent-chat-ui/.cache
+agent-chat-ui/out
+
+# JavaScript dependencies at repo root
+node_modules/
+
+# Cached data directories
+data/rabbitmq/
+data/falkordb/
+data/qdrant/

@@ -11,8 +11,8 @@ ADD . /deps/Bank-copilot
 # -- End of local package . --
 
 # -- Installing all local dependencies --
-RUN PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple \
-    UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple \
+RUN export PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple && \
+    export UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple && \
     for dep in /deps/*; do \
         echo "Installing $dep"; \
         if [ -d "$dep" ]; then \

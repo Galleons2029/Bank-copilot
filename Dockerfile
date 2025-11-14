@@ -2,13 +2,24 @@
 
 FROM langchain/langgraph-api:3.12
 
+# -- Configure pip to use Tsinghua mirror --
+RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple && \
+    pip config set install.trusted-host pypi.tuna.tsinghua.edu.cn
 
 # -- Adding local package . --
 ADD . /deps/Bank-copilot
 # -- End of local package . --
 
 # -- Installing all local dependencies --
-RUN for dep in /deps/*; do             echo "Installing $dep";             if [ -d "$dep" ]; then                 echo "Installing $dep";                 (cd "$dep" && PYTHONDONTWRITEBYTECODE=1 uv pip install --system --no-cache-dir -c /api/constraints.txt -e .);             fi;         done
+RUN PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple \
+    UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple \
+    for dep in /deps/*; do \
+        echo "Installing $dep"; \
+        if [ -d "$dep" ]; then \
+            echo "Installing $dep"; \
+            (cd "$dep" && PYTHONDONTWRITEBYTECODE=1 uv pip install --system --no-cache-dir -c /api/constraints.txt -e . --index-url https://pypi.tuna.tsinghua.edu.cn/simple); \
+        fi; \
+    done
 # -- End of local dependencies install --
 ENV LANGSERVE_GRAPHS='{"demo": "/deps/Bank-copilot/app/core/agent/graph/rag_agent.py:rag_agent"}'
 

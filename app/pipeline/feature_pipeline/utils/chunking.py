@@ -5,6 +5,7 @@ from langchain.text_splitter import (
 
 from app.pipeline.feature_pipeline.config import settings
 from app.configs import llm_config
+from app.core.agent.call_llm import client
 
 def chunk_text(text: str) -> list[str]:
     """
@@ -27,6 +28,50 @@ def chunk_text(text: str) -> list[str]:
         chunks.extend(token_splitter.split_text(section))
 
     return chunks
+
+
+DOCUMENT_CONTEXT_PROMPT = """
+<document>
+{doc_content}
+</document>
+"""
+
+CHUNK_CONTEXT_PROMPT = """
+以下是我们希望在整个文档中定位的片段
+<chunk>
+{chunk_content}
+</chunk>
+
+请简要说明该片段在整体文档中的位置，以便提升该片段的搜索检索效果。
+只回答简洁的上下文说明，不要包含其他内容。
+"""
+
+
+def situate_context(doc: str, chunk: str) -> str:
+    response = client.invoke(
+        model="claude-3-haiku-20240307",
+        max_tokens=1024,
+        temperature=0.0,
+        messages=[
+            {
+                "role": "user", 
+                "content": [
+                    {
+                        "type": "text",
+                        "text": DOCUMENT_CONTEXT_PROMPT.format(doc_content=doc),
+                        "cache_control": {"type": "ephemeral"} #we will make use of prompt caching for the full documents
+                    },
+                    {
+                        "type": "text",
+                        "text": CHUNK_CONTEXT_PROMPT.format(chunk_content=chunk),
+                    }
+                ]
+            }
+        ],
+        extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"}
+    )
+    return response
+
 
 
 

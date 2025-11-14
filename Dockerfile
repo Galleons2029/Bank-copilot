@@ -21,7 +21,7 @@ RUN export PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple && \
         fi; \
     done
 # -- End of local dependencies install --
-ENV LANGSERVE_GRAPHS='{"demo": "/deps/Bank-copilot/app/core/agent/graph/rag_agent.py:rag_agent"}'
+ENV LANGSERVE_GRAPHS='{"agent": "/deps/Bank-copilot/app/core/agent/graph/instructor_agent.py:agent"}'
 
 
 

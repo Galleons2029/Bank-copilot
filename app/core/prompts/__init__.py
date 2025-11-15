@@ -26,3 +26,7 @@ COORDINATOR_PROMPT = load_system_prompt(prompt_path="coordinator.md",
                                         agent_name="Task Coordinator Agent"
                                         )
 
+INSTRUCTOR_PROMPT = load_system_prompt(prompt_path="instructor.md",
+                                       agent_name="Task Instructor Agent"
+                                       )
+

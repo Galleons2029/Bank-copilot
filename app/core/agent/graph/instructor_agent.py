@@ -28,7 +28,11 @@ from pydantic import BaseModel, Field
 from typing_extensions import Annotated, TypedDict
 
 from app.configs import agent_config, llm_config
-from app.core.rag.retriever import VectorRetriever
+
+try:  # Optional dependency; allow LangGraph server to boot without Qdrant
+    from app.core.rag.retriever import VectorRetriever  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover - fallback for light deployments
+    VectorRetriever = None
 
 # --- Domain guidance -----------------------------------------------------------------
 PROJECT_CONTEXT = (
@@ -266,16 +270,21 @@ def analyze_intent(state: InstructorState) -> InstructorState:
 def retrieve_context(state: InstructorState) -> InstructorState:
     query = build_retrieval_query(state["messages"], state.get("intent"))
     context_chunks: list[str]
-    try:
-        retriever = VectorRetriever(query)
-        hits = retriever.retrieve_top_k(
-            k=6,
-            collections=[DEFAULT_COLLECTION],
-            to_expand_to_n_queries=3,
-        )
-        context_chunks = retriever.rerank(hits=hits, keep_top_k=3)
-    except Exception as exc:  # pragma: no cover - defensive
-        context_chunks = [f"知识检索失败：{exc}"]
+    if VectorRetriever is None:
+        context_chunks = [
+            "知识库检索暂不可用（缺少 qdrant_client 依赖）。请先安装依赖或手动提供参考资料。"
+        ]
+    else:
+        try:
+            retriever = VectorRetriever(query)
+            hits = retriever.retrieve_top_k(
+                k=6,
+                collections=[DEFAULT_COLLECTION],
+                to_expand_to_n_queries=3,
+            )
+            context_chunks = retriever.rerank(hits=hits, keep_top_k=3)
+        except Exception as exc:  # pragma: no cover - defensive
+            context_chunks = [f"知识检索失败：{exc}"]
     return {"knowledge_context": context_chunks}
 
 

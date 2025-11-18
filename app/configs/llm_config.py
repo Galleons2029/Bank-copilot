@@ -20,6 +20,8 @@ class LLMConfig(BaseSettings):
     # LLM config
     LLM_MODEL: str | None = None
     FREE_LLM_MODEL: str | None = "Qwen/Qwen3-8B"
+    DEFAULT_LLM_TEMPERATURE: float = 0.0
+    MAX_TOKENS: int = 32048
 
 
     # Embeddings config
@@ -39,7 +41,7 @@ class LLMConfig(BaseSettings):
     SILICON_BASE_URL: str | None = "https://api.siliconflow.cn/v1"
     SILICON_EMBEDDING: str | None = "https://api.siliconflow.cn/v1/embeddings"
 
-    ALI_KEY: str | None = None
+    API_KEY: str | None = None
 
 settings = LLMConfig()
 

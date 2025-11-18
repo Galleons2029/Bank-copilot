@@ -11,3 +11,6 @@ __pycache__/
 
 # Jupyter Book outputs
 **/jupyterbook/
+
+# Notebook files
+*.ipynb

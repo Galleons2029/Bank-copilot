@@ -8,3 +8,6 @@ data/
 
 # Python bytecode cache
 __pycache__/
+
+# Jupyter Book outputs
+**/jupyterbook/

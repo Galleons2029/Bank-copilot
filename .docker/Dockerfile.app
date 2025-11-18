@@ -1,6 +1,6 @@
 # 1. Base Image
 # Use a slim Python image matching the project's version
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 # 2. Set Environment Variables
 # Prevents Python from writing pyc files and buffers stdout and stderr
@@ -31,10 +31,10 @@ COPY ./app .
 
 # 7. Expose Port
 # Expose the default port for Gradio applications
-EXPOSE 2024
+EXPOSE 8000
 
 # 8. Set Default Command
 # Run the Gradio application, binding to 0.0.0.0 to make it accessible outside the container
 
-CMD ["uv", "run", "/app/ui/gradio_chat.py"]
+CMD ["uv", "run", "/app/main.py", "--host", "0.0.0.0", "--port", "8001"]
 

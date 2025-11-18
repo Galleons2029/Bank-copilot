@@ -3,8 +3,8 @@ services:
     image: rabbitmq:4-management
     container_name: mq
     ports:
-      - "5673:5672"
-      - "15673:15672"
+      - "5672:5672"
+      - "15672:15672"
     volumes:
       - ./data/rabbitmq/data/:/var/lib/rabbitmq/
       - ./data/rabbitmq/log/:/var/log/rabbitmq
@@ -142,33 +142,36 @@ services:
       - dragonfly
     restart: always
 
-  frontend:
-    container_name: agent-chat-ui
-    build:
-      context: ./agent-chat-ui
-      target: dev
-    environment:
-      NODE_ENV: development
-      WATCHPACK_POLLING: "true"
-      CHOKIDAR_USEPOLLING: "true"
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:2024}
-      NEXT_PUBLIC_ASSISTANT_ID: ${NEXT_PUBLIC_ASSISTANT_ID:-agent}
-      NEXT_PUBLIC_API_KEY: ${NEXT_PUBLIC_API_KEY:-}
-      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
-      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:-}
-      NEXT_PUBLIC_SUPPRESS_AI_CHAT_INIT_TOAST: ${NEXT_PUBLIC_SUPPRESS_AI_CHAT_INIT_TOAST:-false}
-      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./agent-chat-ui:/app
-    depends_on:
-      - langgraph
-    restart: always
+  # frontend:
+  #   container_name: agent-chat-ui
+  #   build:
+  #     context: ./agent-chat-ui
+  #     target: dev
+  #   environment:
+  #     NODE_ENV: development
+  #     WATCHPACK_POLLING: "true"
+  #     CHOKIDAR_USEPOLLING: "true"
+  #     NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:2024}
+  #     NEXT_PUBLIC_ASSISTANT_ID: ${NEXT_PUBLIC_ASSISTANT_ID:-agent}
+  #     NEXT_PUBLIC_API_KEY: ${NEXT_PUBLIC_API_KEY:-}
+  #     NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+  #     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:-}
+  #     NEXT_PUBLIC_SUPPRESS_AI_CHAT_INIT_TOAST: ${NEXT_PUBLIC_SUPPRESS_AI_CHAT_INIT_TOAST:-false}
+  #     LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+  #   ports:
+  #     - "3000:3000"
+  #   volumes:
+  #     - ./agent-chat-ui:/app
+  #   depends_on:
+  #     - langgraph
+  #   restart: always
 
 
 
 volumes:
+  mongo-replica-1-data:
+  mongo-replica-2-data:
+  mongo-replica-3-data:
   qdrant-data:
   #timescaledb_data:
   dragonflydata:

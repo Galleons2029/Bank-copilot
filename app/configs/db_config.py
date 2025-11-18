@@ -9,7 +9,7 @@
 
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import PostgresDsn, Field
+from pydantic import Field
 ROOT_DIR = Path(__file__).resolve().parents[2] / '.env'
 
 class PostgresConfig(BaseSettings):
@@ -26,11 +26,6 @@ class PostgresConfig(BaseSettings):
     PG_PASSWORD: str = "password"
     PG_DB: str = "postgres"
 
-    # psycopg3 异步
-    # Keep as plain string because Pydantic's PostgresDsn doesn't recognize custom async schemes.
-    POSTGRES: str = Field(
-        default="postgresql+psycopg_async://user:pass@localhost:5432/mydb"
-    )
     POSTGRES_URL: str = Field(
         default="postgresql+psycopg_async://user:pass@localhost:5432/mydb"
     )

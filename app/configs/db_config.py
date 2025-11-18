@@ -27,7 +27,8 @@ class PostgresConfig(BaseSettings):
     PG_DB: str = "postgres"
 
     # psycopg3 异步
-    POSTGRES: PostgresDsn = Field(
+    # Keep as plain string because Pydantic's PostgresDsn doesn't recognize custom async schemes.
+    POSTGRES: str = Field(
         default="postgresql+psycopg_async://user:pass@localhost:5432/mydb"
     )
     POSTGRES_URL: str = Field(

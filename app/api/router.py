@@ -11,7 +11,7 @@ from typing import Annotated
 import logging
 from fastapi import FastAPI, APIRouter, Header, HTTPException
 from pydantic import BaseModel
-from app.api.v1 import inference_v1
+from app.api.v1 import inference_v1, knowledge_v1
 from contextlib import asynccontextmanager
 from app.core.db.postgre import engine
 
@@ -36,6 +36,7 @@ api_router = APIRouter()
 
 
 api_router.include_router(inference_v1.router, prefix="/inference", tags=["inference-v1"])
+api_router.include_router(knowledge_v1.router)
 
 # api_router.include_router(chat_v3.router, prefix="/v3", tags=["chat-v3"])
 # api_router.include_router(chat_v2.router, prefix="/v1", tags=["chat-v2"])

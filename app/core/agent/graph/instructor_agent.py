@@ -1,289 +1,349 @@
-# Step 1: Define tools and model
+# -*- coding: utf-8 -*-
+"""
+Instructor agent workflow.
 
-from langchain.tools import tool
-from langchain.chat_models import init_chat_model
-from dotenv import load_dotenv
-import os
-
-from langchain.messages import AnyMessage
-from typing_extensions import TypedDict, Annotated
-import operator
-from langchain.messages import SystemMessage
-from langchain.messages import ToolMessage
-from typing import Literal
-from langgraph.graph import StateGraph, START, END
-
-load_dotenv()
-
-model = init_chat_model(
-    model="deepseek-ai/DeepSeek-V3.2-Exp",
-    base_url="https://api.siliconflow.cn/v1",
-    api_key=os.getenv("API_KEY"),
-    model_provider='openai',
-    temperature=0
-)
-
-
-# Augment the LLM with tools
-#tools = [add, multiply, divide]
-#tools_by_name = {tool.name: tool for tool in tools}
-#model_with_tools = model.bind_tools(tools)
-
-prompt="""
-你是一个银行财务助手，旨在帮助会计和财务人员高效地检索会计记录、核实交易，并分析交易。在银行财务运营中，系统的主要目标是解决以下关键操作挑战：
-
-**1. 新员工培训和财务概念的理解：**
-非财务专业人员经常发现理解会计基本概念（如账户代码、借贷方向和余额方向）比较困难。以下是几个相关问题的示例：
-
-**示例：**
-Q1：级别1、级别2和级别3账户编码规则是什么？请提供一个级别3账户代码并解释外部账户编码规则。
-A1：级别1账户为4位，级别2账户为6位，级别3账户为8位。例如，级别1账户1001表示“现金”，级别2账户100103表示“自助设备占用”，级别3账户10010301表示“网点ATM占用”。编码规则为：“级别1 4位 + 级别2 2位 + 级别3 2位”。外部账户的编码规则为“3+2+2”，系统会自动在前面加一个“8”，然后在日终处理时移除该“8”。
-
-Q2：内部账户号的编码规则是什么？内部账户号由哪些部分组成？请举例。
-A2：内部账户号由26个字符组成，编码规则为：“会计机构（9位）+币种（3位）+科目代码（8位）+序号（6位）”。例如：01000000015610010302000001表示会计机构010000000，币种156，科目代码10010302，序号000001。
-
-Q3：有哪些账户状态类型？什么情况下科目会从“活跃”转为“暂停”？暂停后的内部账户如何处理？
-A3：账户状态包括“待激活”、“活跃”、“暂停”和“已注销”。当科目的到期日期到达或手动暂停交易发起时，科目会转为“暂停”状态。余额为零的内部账户会被注销，余额非零的内部账户则会进入暂停状态。
-
-Q4：内部账户的核销类型有哪些？什么情况下“一次核销，多个清算”会转为“一次核销，一次清算”？核销号码的编码规则是什么？
-A4：核销类型包括“一次核销，一次清算”、“一次核销，多个清算”、“多个核销，一次清算”和“多个核销，多个清算”。“一次核销，多个清算”转为“一次核销，一次清算”的条件是账户余额为零，并且所有核销记录下的清算项已清除。核销号码编码规则为：9位机构号 + 6位日期（YYYYMMDD） + 3位序号，总共18位。
-
-Q5：增值税（VAT）税率代码及适用的业务类型有哪些？核心的价格与税分离计算公式是什么？
-A5：增值税税率代码及适用的业务类型：
-
-* VAT001（0%）：国债/地方债利息，银行间利息收入
-* VAT002（6%）：直接收费金融服务，贷款服务，金融产品转让
-* VAT003（11%）：投资房地产租赁收入
-* VAT004（17%）：贵金属收入，服务费用
-
-核心公式为：
-税额 = 总应税金额 × VAT税率 ÷ (1 + VAT税率)，
-其中，总应税金额 = 税额 + 非应税金额。
-
-Q6：哪些账户可以手动记账？哪些机构层级不支持手动记账？内部账户与外部账户的余额要求有何不同？
-A6：允许手动记账的账户包括内部账户（“Y”标志）和纯科目账户（“G”标志）。子机构层级不支持手动记账。内部账户要求在总账、机构、币种和利息起算日之间的余额匹配。外部账户采用单方记账法，不要求余额匹配。
-
-Q7：总账的横向、纵向平衡检查公式是什么？纵向平衡检查适用的会计方法是什么？
-A7：横向平衡检查公式为：
-“当日贷方余额 - 当日借方余额 - 上日贷方余额 + 上日借方余额 - 当日贷方变动 + 当日借方变动 = 0”。
-
-纵向平衡检查公式为：
-“上日借方余额总额 = 上日贷方余额总额，当前日借方变动总额 = 当前日贷方变动总额，当前日借方余额总额 = 当前日贷方余额总额。”
-
-纵向平衡检查仅适用于复式记账法（R型）账户。
-
-Q8：银行的科目账户类型及其借贷规则有哪些？
-A8：科目账户类型包括：
-
-* 资产类：现金，ATM占用（如1001“现金”）
-* 负债类：客户存款（如2001“企业活期存款”）
-* 资产负债类：跨系统交易（如300408“跨系统交易”）
-* 权益类：实收资本，净利润（如4001“实收资本”）
-* 或有资产/负债类：担保（如5001“利息收入”）
-* 损益类：利息收入，费用（如5001“利息收入”）
-* 表外类：票据（如8001“银行承兑汇票”）
-
-借贷规则：
-
-* 资产和费用账户借方增加，贷方减少。
-* 负债和收入账户贷方增加，借方减少。
-* 表外账户采用单方记账法，不强制要求借贷平衡。
-
-
-**2. 交易记录和账户查询效率：**
-账户和交易记录分为历史查询和当日查询。根据账户的不同，可能需要查询多个系统，导致从详细记录到对应会计分录的追溯出现延迟。系统将处理多步骤的交易查询，如下所示：
-
-**示例：**
-例子1：（测试：账号+交易日期+传票信息+科目余额跨轮关联）
-第一轮用户提问：
-“查询账号622208XXXXXXXXXXXX（客户银行卡号）在2025-06-03的所有交易记录，麻烦列出交易金额和交易时间？”
-（智能体预期回复：该账号2025-06-03共2笔交易：①交易金额5000.00元，交易时间10:23:15；②交易金额1200.00元，交易时间16:45:30）
-第二轮用户提问：“第一笔交易对应的传票号是什么？这个传票号的套内序列号是多少？”（智能体预期回复：第一笔交易的传票号为20250603000123，传票套内序列号为0001，来自传票历史表）
-第三轮用户提问：
-“该传票对应的科目号是什么？这个科目的余额方向是借方还是贷方？”
-（智能体预期回复：对应的科目号为10010301（在行式ATM占款），科目余额方向为借方（D），遵循上级科目“现金（1001）”的余额方向规则）
-
-例子2：（测试：科目号+机构+币种+总分差额跨轮关联）
-第一轮用户提问：
-“科目号1002（二级科目）、机构号100000001、币种CNY在2025-06-08的总分差额（tot_mint_dif）是多少？”
-（智能体预期回复：该条件下的总分差额为300.00元，来自总分核对结果表（std_01_prod.std_uais_aitrp06_dd））
-第二轮用户提问：
-“这个总分差额是分户账余额大于总账余额还是小于？请列出该科目的分户账余额和总账余额分别是多少？”
-（智能体预期回复：分户账余额（sbact_acct_bal）为85300.00元，总账余额（gnl_ldgr_bal）为85000.00元，分户账余额大于总账余额导致差额）
-第三轮用户提问：“导致该差额的可能交易明细有哪些？麻烦筛选出金额在200-400元之间的交易流水？”
-（智能体预期回复：符合条件的交易流水1笔：交易日期2025-06-0814:12:05，交易金额300.00元，借贷方标识为“借”，来自金融交易历史表）
-
-例子3：（测试：多主体语境独立+跨轮总结）
-第一轮用户提问：
-“分别查询账号622208XXXXXXXXXXXX（客户A）和622208YYYYYYYYYYYY（客户B）在2025-06-07的最后一笔交易的交易币种和当前余额？”
-（智能体预期回复：客户A：交易币种CNY，当前余额15600.00元；客户B：交易币种USD，当前余额500.00美元，当前余额字段来自金融交易历史表（crn_bal））
-第二轮用户提问：
-“请分别总结两个客户的交易关键信息，包括账号、交易日期、币种、余额、内部账号/挂销账情况？”
-（智能体预期回复：客户A：账号622208XXXXXXXXXXXX，交易日期2025-06-07，币种CNY，余额15600.00元，内部账号01000000015610010301000002，无挂销账；客户B：账号622208YYYYYYYYYYYY，交易日期2025-06-07，币种USD，余额500.00美元，无对应内部账号，无挂销账）
-
-例子4：（测试：币种→金额→余额关联）
-第一轮用户提问：
-“金融交易历史表中，acct_num=622208AAAAAAAABBBBB、txn_ccy=USD（交易币种）的txn_dt=2025-06-07的txn_amt（交易金额）是多少？”
-（智能体预期回复：txn_amt=1000.00USD，dbt_cr_id=C（贷方，即账户收入），数据来自std_01_prod.std_ibs_bptfhist_di表txn_ccy、txn_amt字段）
-第二轮用户提问：“该acct_num对应的分户余额表中，ccy=USD的sbact_acct_bal（分户账余额）和gnl_ldgr_bal（总账余额）是多少？”
-（智能体预期回复：来自std_01_prod.std_ibs_aitbb02_di表，sbact_acct_bal=5800.00USD，gnl_ldgr_bal=5800.00USD，两者无差额）
-第三轮用户提问：“若要查该txn_ccy=USD的交易对应的vchr_num（传票号），需在传票历史表中关联哪个字段？该传票号的ccy_symb（货币符）是否为USD？”
-（智能体预期回复：需关联传票历史表的acct_num、txn_dt、ccy_symb字段；该交易vchr_num=20250607000999，ccy_symb=USD，与交易币种一致，数据来自金融交易表）
-:
-例子5：
-第一轮用户提问：
-“传票历史表（std_01_prod.std_uais_bptvchh_di）中，acct_num=622208ZZZZZZZZZZZZ、rd_flg=R（红字）的txn_dt（交易日期）和amt（金额）是多少？”
-（智能体预期回复：txn_dt=2025-06-06，amt=800.00元（红字表示冲销），数据来自该表rd_flg、txn_dt、amt字段）
-第二轮用户提问：
-“这笔红字交易的orig_vchr_num（原传票号）和orig_txn_dt（原交易日期）是什么？原交易的ldin_flg（借贷方标志）是借还是贷？”
-（智能体预期回复：orig_vchr_num=20250606000789，orig_txn_dt=2025-06-06；原交易ldin_flg=D（借方，即原交易为账户支出），数据来自该表orig_vchr_num、orig_txn_dt、ldin_flg字段）
-第三轮用户提问：
-“原传票号对应的acg_dt（会计日期）和txn_tm（交易时间）是多少？会计日期与原交易日期是否一致？”
-（智能体预期回复：原传票号acg_dt=2025-06-06，txn_tm=143000（即14:30:00）；会计日期与原交易日期一致，数据来自该表acg_dt、txn_tm字段）
-
-Q14：能否过滤出造成该差异的交易？重点关注200到400 CNY之间的交易。
-A14：造成该差异的交易是：
-交易日期：2025年6月8日，金额：300.00 CNY，借/贷标志：“借”（D），来源于金融交易历史表（std_01_prod.std_ibs_bptfhist_di）。
-
-**3. 跨系统问题定位：**
-跨多个系统发现差异可能会很慢。然而，本系统能够准确跟踪并解决差异，通过识别具体交易来解决问题。
-**示例：**
-Q15：请总结2025年6月7日最后一笔交易中，客户A账户（622208XXXXXXXXXXXX）和客户B账户（622208YYYYYYYYYYYY）的交易详情，包括币种和余额。
-A15：客户A：币种CNY，当前余额：15,600.00 CNY。
-客户B：币种USD，当前余额：500.00 USD。此数据来自金融交易历史表（crn_bal）。
-
-Q16：您能总结两位客户的关键信息吗？包括他们的账户号码、交易日期、币种、余额及内部账户/核销详情。
-A16：客户A：账户622208XXXXXXXXXXXX，交易日期2025年6月7日，币种CNY，余额15,600.00 CNY，内部账户01000000015610010301000002，暂无核销。
-客户B：账户622208YYYYYYYYYYYY，交易日期2025年6月7日，币种USD，余额500.00 USD，暂无内部账户，暂无核销。
-
-**4. 慢账务问题定位：**
-账务差异常发生在多个系统中，导致很难迅速定位平衡差异的根源。本系统着重于高效地追踪这些差异，确定其来源，并提供解决方案，帮助处理跨平台数据不匹配引发的问题。
-**示例：**
-Q17：请告诉我2025年6月1日至6月10日之间，总余额差异的账户ID。
-A17：有19个账户存在差异，包括：
-核算机构号 科目编号 币种 ID
-100132040 1178107 YCN 1001320401178107YCN
-100132058 1018112 DUS 1001320581018112DUS
-100132058 1018114 DUS 1001320581018114DUS
-100132060 1018114 DUS 1001320601018114DUS
-100132070 1018114 DUS 1001320701018114DUS
-100132110 1018114 DUS 1001321101018114DUS
-10770666 1018114 DUS 107706661018114DUS
-1170661 1018114 DUS 11706611018114DUS
-1570661 1018114 DUS 15706611018114DUS
-18070666 1018114 DUS 180706661018114DUS
-200132058 1018114 DUS 2001320581018114DUS
-20070666 1018114 DUS 200706661018114DUS
-20070666 1018114 YJP 200706661018114YJP
-220070667 1228107 YCN 2200706671228107YCN
-300132058 1018114 DUS 3001320581018114DUS
-500132058 1018114 DUS 5001320581018114DUS
-610070666 1018114 DUS 6100706661018114DUS
-80070666 1018112 DUS 800706661018112DUS
-80070666 1018114 DUS 800706661018114DUS
-Q18：2025年6月1日至6月10日这些账户中发生了哪些类型的错误？
-A18：错误类型包括：
-错误1：部分日期余额匹配，部分日期显示差异（例如，账户1001320401178107YCN，2200706671228107YCN）。
-错误2：6月1日之前持续存在的差异，子账和总账同步变动。
-错误3：6月1日后差异，余额波动。
-错误4：缺少某些账户数据（例如，180706661018114DUS）。
-
-Q19：能否展示2025年6月1日至6月10日间，账户ID 1001320401178107YCN的总余额差额表？
-A19：对于账户ID 1001320401178107YCN，2025年6月1日至6月10日的总余额差额如下：
-核算机构号 科目编号 币种 分户余额合计 科目总账余额 总分差额 日期
-100132040 1178107 YCN -436592.73 -436592.73 0 20250601
-100132040 1178107 YCN -438952.85 -438952.85 0 20250602
-100132040 1178107 YCN -441320.98 -441320.98 0 20250603
-100132040 1178107 YCN -444349.6 -444349.6 0 20250604
-100132040 1178107 YCN -446722.47 -446722.47 0 20250605
-100132040 1178107 YCN -446910.85 -446811.08 -99.77 20250606
-100132040 1178107 YCN -450717.05 -450617.28 -99.77 20250607
-100132040 1178107 YCN -453118.45 -453018.68 -99.77 20250608
-100132040 1178107 YCN -451614.81 -451614.81 0 20250609
-100132040 1178107 YCN -454019.38 -454019.38 0 20250610
-Q20：2025年6月6日账户ID 1001320401178107YCN差异的原因可能是什么？
-A20：2025年6月6日的差异可能是由于冗余的红字交易和对应的蓝字调整造成的，导致了-99.77 CNY的差异。
-
-Q21：您能识别出2025年6月6日造成该差异的具体交易吗？
-A21：有问题的交易包括2025年6月6日的红字（-99.77 CNY）交易和2025年6月7日的蓝字（99.77 CNY）调整，这些似乎是重复的修正交易。
-借贷 红蓝字标志 交易日期 金额 会计日期 交易时间 原传票号 传票号
-D R 2025/6/6 -99.77 2025/6/6 0  CL0100023864
-D B 2025/6/7 99.77 2025/6/6 5219 99C787010783 8.08787E+11
-D R 2025/6/7 -99.77 2025/6/6 5219 8.08787E+11 99C787010783
+This module rebuilds the instructor agent described in docs/agent.ipynb into a
+multi-stage LangGraph that mirrors the Bank-Copilot tasks:
+1. Classify the user's intent across onboarding,检索和总分不平推理。
+2. 根据任务类型与上下文动态决定是否检索知识。
+3. 生成符合“Learn + Build + Assess”结构的课程/分析结果。
 """
 
+from __future__ import annotations
 
-class MessagesState(TypedDict):
-    messages: Annotated[list[AnyMessage], operator.add]
+import os
+from typing import Literal, Sequence
+
+from langchain_core.messages import (
+    AIMessage,
+    AnyMessage,
+    BaseMessage,
+    HumanMessage,
+)
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
+from langgraph.graph import END, StateGraph
+from langgraph.graph.message import add_messages
+from pydantic import BaseModel, Field
+from typing_extensions import Annotated, TypedDict
+
+from app.configs import agent_config, llm_config
+
+try:  # Optional dependency; allow LangGraph server to boot without Qdrant
+    from app.core.rag.retriever import VectorRetriever  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover - fallback for light deployments
+    VectorRetriever = None
+
+# --- Domain guidance -----------------------------------------------------------------
+PROJECT_CONTEXT = (
+    "Bank-Copilot 面向银行财会，解决三个典型任务："
+    "① 新员工/非财会同事培训；② 按机构-科目-币种-日期等多维度进行分录穿透检索；"
+    "③ 在总账与分户之间排查2025-06-01~2025-06-10的总分不平。"
+    "输出需要兼顾术语解释、流程拆解以及差异定位建议，并保持严谨、可执行。"
+)
+
+CURRICULUM_STYLE = (
+    "最终回答请包含 Learn（知识点/概念）、Build（实操/流程/SQL/图示）、"
+    "Assess（校验、测试、异常诊断）三个分段。必要时补充 Next Actions 与需用户补充的信息。"
+    "多维检索问题要给出字段映射或步骤表；总分不平需说明类型、定位方法与根因假设。"
+)
+
+DEFAULT_COLLECTION = os.getenv("TRAINING_QDRANT_COLLECTION", "zsk_test1")
+
+# --- LLM setup -----------------------------------------------------------------------
+MODEL_NAME = agent_config.LLM_MODEL or llm_config.LLM_MODEL or "deepseek-ai/DeepSeek-V3"
+API_KEY = (
+    agent_config.LLM_API_KEY
+    or llm_config.SILICON_KEY
+    or os.getenv("LLM_API_KEY")
+    or os.getenv("API_KEY")
+)
+BASE_URL = llm_config.SILICON_BASE_URL or os.getenv("LLM_BASE_URL")
+MAX_TOKENS = agent_config.MAX_TOKENS
+
+common_kwargs = {
+    "model": MODEL_NAME,
+    "api_key": API_KEY,
+    "max_tokens": MAX_TOKENS,
+}
+if BASE_URL:
+    common_kwargs["base_url"] = BASE_URL
+
+analysis_model = ChatOpenAI(temperature=0, **common_kwargs)
+planner_model = ChatOpenAI(temperature=0, **common_kwargs)
+response_model = ChatOpenAI(temperature=0.2, **common_kwargs)
+
+# --- Schemas -------------------------------------------------------------------------
+
+
+class IntentAnalysis(BaseModel):
+    """Structured representation of the instructor intent analysis."""
+
+    task_type: Literal["onboarding", "multidimensional_lookup", "ledger_reasoning"] = Field(
+        description="任务类型：onboarding/检索/总分不平排查"
+    )
+    task_summary: str = Field(description="一句话总结用户需求与成效标准")
+    needs_context: bool = Field(description="是否需要补充知识库/上下文")
+    knowledge_focus: list[str] = Field(
+        default_factory=list,
+        description="检索或回答需要覆盖的关键实体/字段/制度",
+    )
+    deliverable_tone: str = Field(
+        description="输出应当呈现的语气或表达方式，例如表格/步骤/故事线"
+    )
+    follow_up_questions: list[str] = Field(
+        default_factory=list, description="若信息不足，需要向用户确认的问题"
+    )
+
+
+class CurriculumPlan(BaseModel):
+    """Three-stage training/diagnosis plan."""
+
+    learning_objectives: list[str] = Field(description="Learning 阶段要解决的目标")
+    learn_path: list[str] = Field(description="学习材料、关键解释或上下文补充")
+    build_path: list[str] = Field(description="实操流程/SQL/图表/案例步骤")
+    assess_path: list[str] = Field(description="测试题、验收指标、异常诊断步骤")
+    risk_notes: list[str] = Field(
+        description="对潜在风险、依赖和下一步建议的提醒", default_factory=list
+    )
+
+
+class InstructorState(TypedDict):
+    """LangGraph state for the instructor agent."""
+
+    messages: Annotated[list[AnyMessage], add_messages]
+    intent: dict | None
+    knowledge_context: list[str]
+    plan: dict | None
     llm_calls: int
 
 
-def llm_call(state: dict):
-    """LLM decides whether to call a tool or not"""
+# --- Prompt definitions --------------------------------------------------------------
+intent_prompt = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            f"你是Bank-Copilot的教练协调器，需理解上下文并挑选适合的教练路径。{PROJECT_CONTEXT} "
+            "输出JSON以标记任务、是否需要知识检索以及要追问的缺失信息。",
+        ),
+        (
+            "human",
+            "历史对话:\n{history}\n\n当前用户最新输入:\n{question}\n"
+            "请依据3个核心场景给出最贴合的任务类型。",
+        ),
+    ]
+)
 
-    return {
-        "messages": [
-            model.invoke(
-                [
-                    SystemMessage(
-                        content="你是一名专业的财务助理。"
-                    )
-                ]
-                + state["messages"]
+plan_prompt = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            f"你是Bank-Copilot的课程架构师。结合识别出的任务、学员画像以及检索到的知识，"
+            f"设计一个 Learn/Build/Assess 三段式方案。{PROJECT_CONTEXT}",
+        ),
+        (
+            "human",
+            "用户问题: {question}\n"
+            "任务概要: {task_summary}\n"
+            "知识重点: {focus}\n"
+            "可用上下文:\n{context}\n"
+            "若信息不足，仍需给出在 Learn/Build/Assess 阶段需要补齐的要素。",
+        ),
+    ]
+)
+
+response_prompt = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            f"你是银行财会领域的教练型智能体，输出需严谨且行动导向。{PROJECT_CONTEXT}\n"
+            f"{CURRICULUM_STYLE}\n"
+            "若知识检索为空，要透明告知并基于现有信息给出建议。"
+            "回答默认使用中文，可穿插表格/列表帮助理解。",
+        ),
+        (
+            "human",
+            "用户问题: {question}\n"
+            "任务识别: {task_summary}\n"
+            "课程计划:\n{plan_text}\n"
+            "可引用知识:\n{context}\n"
+            "历史对话:\n{history}\n"
+            "需澄清的问题: {follow_ups}\n"
+            "请生成结论并明确下一步行动。",
+        ),
+    ]
+)
+
+intent_chain = intent_prompt | analysis_model.with_structured_output(IntentAnalysis)
+plan_chain = plan_prompt | planner_model.with_structured_output(CurriculumPlan)
+response_chain = response_prompt | response_model
+
+# --- Helper utilities ----------------------------------------------------------------
+
+
+def _message_to_text(message: BaseMessage) -> str:
+    """Normalize LangChain message content into plain text."""
+    content = message.content
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        text_parts = []
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                text_parts.append(block.get("text", ""))
+        return "\n".join(part for part in text_parts if part)
+    return str(content)
+
+
+def get_latest_user_question(messages: Sequence[BaseMessage]) -> str:
+    """Return the latest human utterance."""
+    for message in reversed(messages):
+        if isinstance(message, HumanMessage):
+            return _message_to_text(message).strip()
+    raise ValueError("No human message found in conversation history.")
+
+
+def render_chat_history(messages: Sequence[BaseMessage], limit: int = 6) -> str:
+    """Render the most recent human/assistant messages for prompt conditioning."""
+    filtered: list[tuple[str, str]] = []
+    for msg in messages:
+        if isinstance(msg, HumanMessage):
+            filtered.append(("用户", _message_to_text(msg)))
+        elif isinstance(msg, AIMessage):
+            filtered.append(("助手", _message_to_text(msg)))
+    trimmed = filtered[-limit:]
+    return "\n".join(f"{speaker}: {text}" for speaker, text in trimmed) or "无历史上下文"
+
+
+def format_context(chunks: Sequence[str] | None) -> str:
+    """Format retrieved knowledge chunks."""
+    if not chunks:
+        return "无可用知识片段"
+    return "\n---\n".join(chunks)
+
+
+def format_plan(plan: dict | None) -> str:
+    """Convert CurriculumPlan dict into friendly text."""
+    if not plan:
+        return "未生成课程计划"
+    sections = []
+    for key, title in [
+        ("learning_objectives", "Learning Objectives"),
+        ("learn_path", "Learn"),
+        ("build_path", "Build"),
+        ("assess_path", "Assess"),
+        ("risk_notes", "Risks / Next steps"),
+    ]:
+        values = plan.get(key) or []
+        if values:
+            bullet = "\n".join(f"- {item}" for item in values)
+        else:
+            bullet = "- 暂无信息"
+        sections.append(f"{title}:\n{bullet}")
+    return "\n\n".join(sections)
+
+
+def build_retrieval_query(messages: Sequence[BaseMessage], intent: dict | None) -> str:
+    """Compose a retrieval query using the last user need and intent focus."""
+    user_question = get_latest_user_question(messages)
+    focus = ", ".join((intent or {}).get("knowledge_focus", []))
+    return f"{user_question}\n检索聚焦: {focus or '财会培训/流程/差异定位'}"
+
+
+def should_fetch_context(state: InstructorState) -> Literal["retrieve", "skip"]:
+    """Routing helper after intent classification."""
+    intent = state.get("intent") or {}
+    if intent.get("needs_context"):
+        return "retrieve"
+    return "skip"
+
+
+# --- Graph nodes ---------------------------------------------------------------------
+def analyze_intent(state: InstructorState) -> InstructorState:
+    question = get_latest_user_question(state["messages"])
+    history_text = render_chat_history(state["messages"][:-1])
+    analysis = intent_chain.invoke({"history": history_text, "question": question})
+    current_calls = state.get("llm_calls", 0) + 1
+    return {"intent": analysis.model_dump(), "llm_calls": current_calls}
+
+
+def retrieve_context(state: InstructorState) -> InstructorState:
+    query = build_retrieval_query(state["messages"], state.get("intent"))
+    context_chunks: list[str]
+    if VectorRetriever is None:
+        context_chunks = [
+            "知识库检索暂不可用（缺少 qdrant_client 依赖）。请先安装依赖或手动提供参考资料。"
+        ]
+    else:
+        try:
+            retriever = VectorRetriever(query)
+            hits = retriever.retrieve_top_k(
+                k=6,
+                collections=[DEFAULT_COLLECTION],
+                to_expand_to_n_queries=3,
             )
-        ],
-        "llm_calls": state.get('llm_calls', 0) + 1
-    }
+            context_chunks = retriever.rerank(hits=hits, keep_top_k=3)
+        except Exception as exc:  # pragma: no cover - defensive
+            context_chunks = [f"知识检索失败：{exc}"]
+    return {"knowledge_context": context_chunks}
 
 
+def design_curriculum(state: InstructorState) -> InstructorState:
+    question = get_latest_user_question(state["messages"])
+    intent = state.get("intent") or {}
+    context_text = format_context(state.get("knowledge_context"))
+    focus = ", ".join(intent.get("knowledge_focus", []))
+    plan = plan_chain.invoke(
+        {
+            "question": question,
+            "task_summary": intent.get("task_summary", ""),
+            "focus": focus or "科目编码 / 机构 / 币种 / 核算区间",
+            "context": context_text,
+        }
+    )
+    current_calls = state.get("llm_calls", 0) + 1
+    return {"plan": plan.model_dump(), "llm_calls": current_calls}
 
 
-
-# def tool_node(state: dict):
-#     """Performs the tool call"""
-
-#     result = []
-#     for tool_call in state["messages"][-1].tool_calls:
-#         tool = tools_by_name[tool_call["name"]]
-#         observation = tool.invoke(tool_call["args"])
-#         result.append(ToolMessage(content=observation, tool_call_id=tool_call["id"]))
-#     return {"messages": result}
-
-# Step 5: Define logic to determine whether to end
-
-
-
-# Conditional edge function to route to the tool node or end based upon whether the LLM made a tool call
-def should_continue(state: MessagesState) -> Literal["tool_node", END]:
-    """Decide if we should continue the loop or stop based upon whether the LLM made a tool call"""
-
-    messages = state["messages"]
-    last_message = messages[-1]
-
-    # If the LLM makes a tool call, then perform an action
-    if last_message.tool_calls:
-        return "tool_node"
-
-    # Otherwise, we stop (reply to the user)
-    return END
+def craft_response(state: InstructorState) -> InstructorState:
+    question = get_latest_user_question(state["messages"])
+    intent = state.get("intent") or {}
+    context_text = format_context(state.get("knowledge_context"))
+    plan_text = format_plan(state.get("plan"))
+    history_text = render_chat_history(state["messages"][:-1])
+    followups = intent.get("follow_up_questions") or []
+    ai_message = response_chain.invoke(
+        {
+            "question": question,
+            "task_summary": intent.get("task_summary", "未识别任务"),
+            "plan_text": plan_text,
+            "context": context_text,
+            "history": history_text,
+            "follow_ups": "；".join(followups) or "暂无",
+        }
+    )
+    current_calls = state.get("llm_calls", 0) + 1
+    return {"messages": [ai_message], "llm_calls": current_calls}
 
 
-# Build workflow
-agent_builder = StateGraph(MessagesState)
+# --- Graph compilation ---------------------------------------------------------------
+graph_builder = StateGraph(InstructorState)
+graph_builder.add_node("analyze_intent", analyze_intent)
+graph_builder.add_node("retrieve_context", retrieve_context)
+graph_builder.add_node("design_curriculum", design_curriculum)
+graph_builder.add_node("respond", craft_response)
 
-# Add nodes
-agent_builder.add_node("llm_call", llm_call)
-#agent_builder.add_node("tool_node", tool_node)
+graph_builder.set_entry_point("analyze_intent")
+graph_builder.add_conditional_edges(
+    "analyze_intent",
+    should_fetch_context,
+    {
+        "retrieve": "retrieve_context",
+        "skip": "design_curriculum",
+    },
+)
+graph_builder.add_edge("retrieve_context", "design_curriculum")
+graph_builder.add_edge("design_curriculum", "respond")
+graph_builder.add_edge("respond", END)
 
-# Add edges to connect nodes
-agent_builder.add_edge(START, "llm_call")
-# agent_builder.add_conditional_edges(
-#     "llm_call",
-#     should_continue,
-#     ["tool_node", END]
-# )
-#agent_builder.add_edge("tool_node", "llm_call")
-agent_builder.add_edge("llm_call", END)
-
-# Compile the agent
-agent = agent_builder.compile()
+agent = graph_builder.compile()

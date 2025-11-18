@@ -1,0 +1,27 @@
+# Minimal dependencies required for the langgraph agent container
+# Start from the imports in app/core/agent/graph/instructor_agent.py
+
+# Core LLM / LangChain / LangGraph stack
+langchain>=0.3.25
+langchain-core>=0.3.65
+langchain-community>=0.3.25
+langchain-openai>=0.3.18
+langgraph>=0.4.8
+langgraph-api>=0.5.6
+langgraph-prebuilt>=1.0.2
+langgraph-runtime-inmem>=0.17.0
+langgraph-sdk>=0.2.9
+
+# HTTP client used by most LLM integrations
+httpx[socks]>=0.28.1
+
+# Pydantic and settings (for configs/models)
+pydantic>=2.11.5
+pydantic-settings>=2.9.1
+
+# Environment and logging helpers
+python-dotenv
+structlog>=25.3.0
+
+# If you see ModuleNotFoundError at runtime for other libs from app/,
+# add the corresponding packages here and rebuild.

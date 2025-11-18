@@ -1,108 +1,94 @@
-import { randomUUID } from "crypto";
+import { resolveApiUrl } from "@/lib/langgraph-config";
+import { KnowledgeBase, KnowledgeChunk, KnowledgeMetadata } from "@/types/knowledge";
 
-import {
-  KNOWLEDGE_METADATA_POINT_ID,
-  buildZeroVector,
-  generateDeterministicVector,
-  qdrantRequest,
-  resolveVectorSize,
-  type QdrantCollection,
-  type QdrantCollectionDetail,
-} from "@/lib/qdrant";
-import {
-  type KnowledgeBase,
-  type KnowledgeChunk,
-  type KnowledgeMetadata,
-} from "@/types/knowledge";
+const API_PREFIX = "/api/v1/knowledge";
+const BACKEND_URL =
+  process.env.BACKEND_API_URL?.replace(/\/$/, "") ||
+  resolveApiUrl().replace(/\/$/, "");
 
-type QdrantResponse<T> = {
-  result: T;
+type KnowledgeBaseListPayload = {
+  data?: KnowledgeBase[];
 };
 
-type ScrollResult = {
-  points: QdrantPoint[];
-  next_page_offset?: string | number;
+type KnowledgeBasePayload = {
+  data: KnowledgeBase;
 };
 
-type QdrantPoint = {
-  id: string | number;
-  payload?: ChunkPayload;
+type ChunkListPayload = {
+  data?: KnowledgeChunk[];
+  nextOffset?: string | number;
 };
 
 type ChunkPayload = {
-  kind?: "chunk" | "metadata";
-  text?: string;
-  title?: string;
-  source?: string;
-  tags?: string[];
-  metadata?: Record<string, unknown>;
-  updatedAt?: string;
-  displayName?: string;
-  description?: string;
+  data: KnowledgeChunk;
 };
 
-const METADATA_FILTER = {
-  must: [
-    {
-      key: "kind",
-      match: {
-        value: "metadata",
-      },
+type SuccessPayload = {
+  success: boolean;
+};
+
+function buildUrl(path: string): string {
+  return `${BACKEND_URL}${path}`;
+}
+
+async function requestBackend<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(buildUrl(path), {
+    ...init,
+    headers: {
+      "content-type": "application/json",
+      ...(init?.headers ?? {}),
     },
-  ],
-};
+    cache: "no-store",
+  });
 
-const CHUNK_FILTER = {
-  must_not: [
-    {
-      key: "kind",
-      match: {
-        value: "metadata",
-      },
-    },
-  ],
-};
-
-export async function listKnowledgeBases(): Promise<KnowledgeBase[]> {
-  const { result } = await qdrantRequest<QdrantResponse<{ collections: QdrantCollection[] }>>(
-    "/collections",
-  );
-
-  if (result.collections.length === 0) {
-    return [];
+  const payload = await parseResponse(response);
+  if (!response.ok) {
+    const message = extractErrorMessage(payload) ?? response.statusText;
+    throw new Error(message || "请求失败");
   }
 
-  const bases = await Promise.all(
-    result.collections.map(({ name }) => getKnowledgeBase(name)),
-  );
+  return (payload as T) ?? ({} as T);
+}
 
-  return bases.sort((a, b) =>
-    a.metadata.displayName.localeCompare(b.metadata.displayName, "zh-CN"),
-  );
+async function parseResponse(response: Response) {
+  if (response.status === 204) {
+    return null;
+  }
+  const contentType = response.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    return response.json();
+  }
+  return response.text();
+}
+
+function extractErrorMessage(payload: unknown): string | undefined {
+  if (!payload) {
+    return undefined;
+  }
+  if (typeof payload === "string") {
+    return payload;
+  }
+  if (typeof payload === "object") {
+    if ("detail" in payload && typeof payload.detail === "string") {
+      return payload.detail;
+    }
+    if ("error" in payload && typeof payload.error === "string") {
+      return payload.error;
+    }
+  }
+  return undefined;
+}
+
+export async function listKnowledgeBases(): Promise<KnowledgeBase[]> {
+  const result = await requestBackend<KnowledgeBaseListPayload>(`${API_PREFIX}/collections`);
+  return Array.isArray(result.data) ? result.data : [];
 }
 
 export async function getKnowledgeBase(name: string): Promise<KnowledgeBase> {
-  const detail = await getCollectionDetail(name);
-  const vectorSize = resolveVectorSize(detail.config);
-  const distance = resolveDistance(detail.config);
-  const metadata = await fetchMetadata(name);
-  const chunkCount = Math.max(
-    detail.points_count - (metadata ? 1 : 0),
-    0,
+  const result = await requestBackend<KnowledgeBasePayload>(
+    `${API_PREFIX}/collections/${encodeURIComponent(name)}`,
   );
-
-  return {
-    name,
-    status: detail.status,
-    vectorSize,
-    distance,
-    chunkCount,
-    metadata: {
-      displayName: metadata?.displayName ?? name,
-      description: metadata?.description,
-      tags: metadata?.tags ?? [],
-    },
-  };
+  return result.data;
 }
 
 export async function createKnowledgeBase(input: {
@@ -112,56 +98,23 @@ export async function createKnowledgeBase(input: {
   description?: string;
   displayName?: string;
 }): Promise<KnowledgeBase> {
-  const normalizedName = input.name.trim();
-  const vectorConfig = {
-    vectors: {
-      size: input.vectorSize,
-      distance: input.distance ?? "Cosine",
-    },
-  };
-
-  await qdrantRequest(`/collections/${encodeURIComponent(normalizedName)}`, {
-    method: "PUT",
-    body: JSON.stringify(vectorConfig),
+  const result = await requestBackend<KnowledgeBasePayload>(`${API_PREFIX}/collections`, {
+    method: "POST",
+    body: JSON.stringify(input),
   });
-
-  await upsertMetadata(normalizedName, {
-    displayName: input.displayName?.trim() || normalizedName,
-    description: input.description?.trim(),
-  });
-
-  return getKnowledgeBase(normalizedName);
+  return result.data;
 }
 
 export async function deleteKnowledgeBase(name: string) {
-  await qdrantRequest(`/collections/${encodeURIComponent(name)}`, {
+  await requestBackend<SuccessPayload>(`${API_PREFIX}/collections/${encodeURIComponent(name)}`, {
     method: "DELETE",
   });
 }
 
-export async function upsertMetadata(
-  collection: string,
-  metadata: Partial<KnowledgeMetadata>,
-) {
-  const detail = await getCollectionDetail(collection);
-  const vectorSize = resolveVectorSize(detail.config);
-
-  await qdrantRequest(`/collections/${encodeURIComponent(collection)}/points`, {
-    method: "PUT",
-    body: JSON.stringify({
-      points: [
-        {
-          id: KNOWLEDGE_METADATA_POINT_ID,
-          vector: buildZeroVector(vectorSize),
-          payload: {
-            kind: "metadata",
-            displayName: metadata.displayName ?? collection,
-            description: metadata.description,
-            tags: metadata.tags ?? [],
-          },
-        },
-      ],
-    }),
+export async function upsertMetadata(collection: string, metadata: Partial<KnowledgeMetadata>) {
+  await requestBackend<KnowledgeBasePayload>(`${API_PREFIX}/collections/${encodeURIComponent(collection)}`, {
+    method: "PATCH",
+    body: JSON.stringify(metadata),
   });
 }
 
@@ -169,25 +122,21 @@ export async function fetchChunks(
   collection: string,
   options: { limit?: number; offset?: string | number } = {},
 ) {
-  const { limit = 50, offset } = options;
+  const params = new URLSearchParams();
+  if (options.limit) {
+    params.set("limit", String(options.limit));
+  }
+  if (options.offset !== undefined && options.offset !== null) {
+    params.set("offset", String(options.offset));
+  }
 
-  const { result } = await qdrantRequest<QdrantResponse<ScrollResult>>(
-    `/collections/${encodeURIComponent(collection)}/points/scroll`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        limit,
-        offset,
-        with_payload: true,
-        with_vectors: false,
-        filter: CHUNK_FILTER,
-      }),
-    },
+  const query = params.toString();
+  const result = await requestBackend<ChunkListPayload>(
+    `${API_PREFIX}/collections/${encodeURIComponent(collection)}/chunks${query ? `?${query}` : ""}`,
   );
-
   return {
-    chunks: result.points.map(formatChunk),
-    nextOffset: result.next_page_offset,
+    chunks: Array.isArray(result.data) ? result.data : [],
+    nextOffset: result.nextOffset,
   };
 }
 
@@ -202,146 +151,43 @@ export async function upsertChunk(
     metadata?: Record<string, unknown>;
   },
 ): Promise<KnowledgeChunk> {
-  const detail = await getCollectionDetail(collection);
-  const vectorSize = resolveVectorSize(detail.config);
-
-  const pointId = input.id ?? randomUUID();
-  const payload: ChunkPayload = {
-    kind: "chunk",
+  const payload = {
     text: input.text,
     title: input.title,
     source: input.source,
     tags: input.tags ?? [],
     metadata: input.metadata ?? {},
-    updatedAt: new Date().toISOString(),
   };
+  const encodedCollection = encodeURIComponent(collection);
 
-  await qdrantRequest(`/collections/${encodeURIComponent(collection)}/points`, {
-    method: "PUT",
-    body: JSON.stringify({
-      points: [
+  const result = input.id
+    ? await requestBackend<ChunkPayload>(
+        `${API_PREFIX}/collections/${encodedCollection}/chunks/${encodeURIComponent(input.id)}`,
         {
-          id: pointId,
-          payload,
-          vector: generateDeterministicVector(
-            [input.title, input.text, pointId].filter(Boolean).join(" "),
-            vectorSize,
-          ),
+          method: "PATCH",
+          body: JSON.stringify(payload),
         },
-      ],
-    }),
-  });
+      )
+    : await requestBackend<ChunkPayload>(`${API_PREFIX}/collections/${encodedCollection}/chunks`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
 
-  return {
-    id: pointId,
-    text: payload.text ?? "",
-    title: payload.title,
-    source: payload.source,
-    tags: payload.tags ?? [],
-    metadata: payload.metadata,
-    updatedAt: payload.updatedAt,
-  };
+  return result.data;
 }
 
 export async function deleteChunk(collection: string, chunkId: string) {
-  await qdrantRequest(
-    `/collections/${encodeURIComponent(collection)}/points/delete`,
+  await requestBackend<SuccessPayload>(
+    `${API_PREFIX}/collections/${encodeURIComponent(collection)}/chunks/${encodeURIComponent(chunkId)}`,
     {
-      method: "POST",
-      body: JSON.stringify({
-        points: [chunkId],
-      }),
+      method: "DELETE",
     },
   );
 }
 
 export async function getChunk(collection: string, chunkId: string) {
-  const { result } = await qdrantRequest<
-    QdrantResponse<{ points: QdrantPoint[] }>
-  >(`/collections/${encodeURIComponent(collection)}/points/retrieve`, {
-    method: "POST",
-    body: JSON.stringify({
-      ids: [chunkId],
-      with_payload: true,
-      with_vectors: false,
-    }),
-  });
-
-  const [point] = result.points;
-  if (!point) {
-    return null;
-  }
-
-  return formatChunk(point);
-}
-
-async function fetchMetadata(
-  collection: string,
-): Promise<KnowledgeMetadata | null> {
-  const { result } = await qdrantRequest<QdrantResponse<ScrollResult>>(
-    `/collections/${encodeURIComponent(collection)}/points/scroll`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        limit: 1,
-        with_payload: true,
-        with_vectors: false,
-        filter: METADATA_FILTER,
-      }),
-    },
+  const result = await requestBackend<ChunkPayload>(
+    `${API_PREFIX}/collections/${encodeURIComponent(collection)}/chunks/${encodeURIComponent(chunkId)}`,
   );
-
-  const [point] = result.points;
-  if (!point?.payload) {
-    return null;
-  }
-
-  return {
-    displayName:
-      point.payload.displayName ?? point.payload.metadata?.displayName ?? "",
-    description:
-      point.payload.description ?? point.payload.metadata?.description,
-    tags: (point.payload.tags ?? []) as string[],
-  };
-}
-
-function resolveDistance(config: QdrantCollectionDetail["config"]) {
-  const vectors = config.params.vectors;
-
-  if (!vectors) {
-    return undefined;
-  }
-
-  if (typeof vectors === "number") {
-    return undefined;
-  }
-
-  if ("distance" in vectors) {
-    return vectors.distance;
-  }
-
-  const values = Object.values(vectors);
-  return values[0]?.distance;
-}
-
-async function getCollectionDetail(name: string) {
-  const { result } = await qdrantRequest<QdrantResponse<QdrantCollectionDetail>>(
-    `/collections/${encodeURIComponent(name)}`,
-  );
-
-  return result;
-}
-
-function formatChunk(point: QdrantPoint): KnowledgeChunk {
-  const payload = point.payload ?? {};
-
-  return {
-    id: String(point.id),
-    text: payload.text ?? "",
-    title: payload.title,
-    source: payload.source,
-    tags: (payload.tags ?? []) as string[],
-    metadata: payload.metadata,
-    updatedAt: payload.updatedAt,
-  };
+  return result.data;
 }

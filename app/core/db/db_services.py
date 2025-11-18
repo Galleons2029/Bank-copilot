@@ -16,13 +16,11 @@ from typing import (
 
 from fastapi import HTTPException
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import SQLModel, select
 
 from app.configs import (
     Environment,
     agent_config as app_settings,
-    postgres_config as settings,
 )
 from app.core.logger_utils import logger
 from app.core.db.postgre import engine as async_engine, async_session

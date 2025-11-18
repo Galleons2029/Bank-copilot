@@ -1,12 +1,10 @@
 # Configure Graphiti
 from graphiti_core import Graphiti
-from graphiti_core.edges import EntityEdge
 from graphiti_core.nodes import EpisodeType
 from openai import AsyncOpenAI
 from graphiti_core.llm_client import OpenAIClient, LLMConfig
 from graphiti_core.embedder import OpenAIEmbedder, OpenAIEmbedderConfig
 from graphiti_core.cross_encoder.openai_reranker_client import OpenAIRerankerClient
-from graphiti_core.search.search_config_recipes import NODE_HYBRID_SEARCH_EPISODE_MENTIONS
 
 from pathlib import Path
 from datetime import datetime, timezone

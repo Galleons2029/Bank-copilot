@@ -4,10 +4,9 @@
 展示如何在 LangGraph/LangChain 后端返回包含 Mermaid 图表的消息
 """
 
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage
 from typing import Annotated
 from typing_extensions import TypedDict
-from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 
 

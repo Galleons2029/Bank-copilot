@@ -202,7 +202,9 @@ def setup_logging() -> None:
         "pika.channel",
         "pika.adapters",
         "pika.adapters.utils",
+        "pika.adapters.utils.io_services_utils",
         "pika.adapters.utils.connection_workflow",
+        "pika.adapters.blocking_connection",
     )
     target_level = logging.DEBUG if pika_debug_enabled else logging.ERROR
     for logger_name in noisy_loggers:

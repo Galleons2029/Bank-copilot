@@ -206,7 +206,8 @@ def setup_logging() -> None:
         "pika.adapters.utils.connection_workflow",
         "pika.adapters.blocking_connection",
     )
-    target_level = logging.DEBUG if pika_debug_enabled else logging.ERROR
+    target_level = logging.DEBUG if pika_debug_enabled else logging.CRITICAL
+    disable_noisy_pika = not pika_debug_enabled
     for logger_name in noisy_loggers:
         logger_obj = logging.getLogger(logger_name)
         # Reset handlers so earlier basicConfig calls can't reattach stdout emitters.
@@ -214,6 +215,8 @@ def setup_logging() -> None:
         logger_obj.setLevel(target_level)
         # Only bubble up to global handlers when explicitly debugging pika internals.
         logger_obj.propagate = pika_debug_enabled
+        # Hard-disable when not debugging to silence verbose socket traces.
+        logger_obj.disabled = disable_noisy_pika
 
 # Initialize logging at import-time and export a shared logger
 setup_logging()

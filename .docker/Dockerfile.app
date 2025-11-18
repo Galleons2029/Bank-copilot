@@ -36,5 +36,5 @@ EXPOSE 8000
 # 8. Set Default Command
 # Run the Gradio application, binding to 0.0.0.0 to make it accessible outside the container
 
-CMD ["uv", "run", "/app/main.py", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["uv", "run", "/app/main.py"]
 

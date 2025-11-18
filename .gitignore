@@ -5,3 +5,6 @@ data/
 
 # Langgraph checkpoint
 .langgraph_api/
+
+# Python bytecode cache
+__pycache__/

@@ -49,7 +49,7 @@ to synchronize project environment automatically
 2. Update the database connection string in your `.env` file:
 
 ```bash
-POSTGRES_URL="postgresql://:your-db-password@POSTGRES_HOST:POSTGRES_PORT/POSTGRES_DB"
+POSTGRES_URL="postgresql+psycopg_async://:your-db-password@POSTGRES_HOST:POSTGRES_PORT/POSTGRES_DB"
 ```
 
 3. Launch Qdrant：

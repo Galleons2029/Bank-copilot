@@ -48,7 +48,7 @@ uv sync   # 若尚未安装 uv，可先运行 "pip install uv"
 2. 在根目录 `.env` 文件中更新数据库连接串：
 
 ```bash
-POSTGRES_URL="postgresql://:your-db-password@POSTGRES_HOST:POSTGRES_PORT/POSTGRES_DB"
+POSTGRES_URL="postgresql+psycopg_async://:your-db-password@POSTGRES_HOST:POSTGRES_PORT/POSTGRES_DB"
 ```
 
 3. 启动 Qdrant：

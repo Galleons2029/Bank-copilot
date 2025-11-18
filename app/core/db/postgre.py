@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 logger = get_logger(__file__)
 engine: AsyncEngine = create_async_engine(
-    postgres_config.POSTGRES_URL,
+    postgres_config.postgres_url_async,
     echo=postgres_config.ECHO_SQL,
     pool_size=postgres_config.POOL_SIZE,
     max_overflow=postgres_config.MAX_OVERFLOW,

@@ -21,7 +21,7 @@ class LLMConfig(BaseSettings):
     LLM_MODEL: str | None = None
     FREE_LLM_MODEL: str | None = "Qwen/Qwen3-8B"
     DEFAULT_LLM_TEMPERATURE: float = 0.0
-    MAX_TOKENS: int | None = 32048
+    MAX_TOKENS: int | None = 100000
 
 
     # Embeddings config

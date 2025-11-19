@@ -1,5 +1,6 @@
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+from app.configs import llm_config
 from app.core.agent.call_llm import client
 from app.core.prompts import CONTEXTUAL_RETRIEVAL_PROMPT
 
@@ -9,21 +10,23 @@ def chunk_text(text: str) -> list[str]:
     if not text or not text.strip():
         return []
 
+    separators = [
+        "\n\n",
+        "\n",
+        " ",
+        ".",
+        ",",
+        "\u200b",  # zero-width space
+        "\uff0c",  # Chinese fullwidth comma
+        "\u3001",  # ideographic comma
+        "\uff0e",  # Chinese fullwidth period
+        "\u3002",  # ideographic period
+        "",
+    ]
+
     # Recommended separators for languages without explicit word boundaries.
     recursive_splitter = RecursiveCharacterTextSplitter(
-        separators=[
-            "\n\n",
-            "\n",
-            " ",
-            ".",
-            ",",
-            "\u200b",  # zero-width space
-            "\uff0c",  # Chinese fullwidth comma
-            "\u3001",  # ideographic comma
-            "\uff0e",  # Chinese fullwidth period
-            "\u3002",  # ideographic period
-            "",
-        ],
+        separators=separators,
         chunk_size=500,
         chunk_overlap=0,
         length_function=len,
@@ -34,7 +37,7 @@ def chunk_text(text: str) -> list[str]:
     for chunk in recursive_splitter.split_text(text):
         if not chunk.strip():
             continue
-        context = situate_context(text, chunk)
+        context = _generate_context(text, chunk, separators)
         enriched_chunks.append(f"{chunk}\n\n{context}".strip())
 
     return enriched_chunks
@@ -50,6 +53,31 @@ def situate_context(doc: str, chunk: str) -> str:
     response = client.invoke(prompt)
     return getattr(response, "content", str(response))
 
+
+def _generate_context(
+    doc: str, chunk: str, separators: list[str]
+) -> str:
+    """Ensure doc fits prompt limits by slicing and merging context when needed."""
+    max_tokens = llm_config.MAX_TOKENS
+    if max_tokens and len(doc) > max_tokens:
+        available = max_tokens - 2000    # 留出空间给提示和响应
+        available = max(available, 10000)
+        doc_splitter = RecursiveCharacterTextSplitter(
+            separators=separators,
+            chunk_size=available,
+            chunk_overlap=500,
+            length_function=len,
+            is_separator_regex=False,
+        )
+        compressed_segments = []
+        for section in doc_splitter.split_text(doc):
+            if not section.strip():
+                continue
+            compressed_segments.append(situate_context(section, chunk))
+        total_context = " ".join(compressed_segments).strip()
+        return client.invoke(f'将下面几段话压缩成简短一段话：{total_context}').content
+
+    return situate_context(doc, chunk)
 
 
 

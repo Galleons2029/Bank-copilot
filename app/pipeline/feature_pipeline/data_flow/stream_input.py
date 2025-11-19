@@ -72,7 +72,7 @@ class RabbitMQPartition(StatefulSourcePartition, Generic[DataT, MessageT]):
 
     def snapshot(self) -> MessageT:
         logger.debug(
-            "创建飞行中消息的快照",
+            "创建运行中消息的快照",
             queue_name=self.queue_name,
             in_flight_count=len(self._in_flight_msg_ids)
         )
@@ -89,7 +89,7 @@ class RabbitMQPartition(StatefulSourcePartition, Generic[DataT, MessageT]):
             self.channel.basic_ack(delivery_tag=msg_id)
             self._in_flight_msg_ids.remove(msg_id)
             logger.debug(
-                "消息已确认并从飞行中移除",
+                "消息已确认并从运行中移除",
                 queue_name=self.queue_name,
                 message_id=msg_id
             )

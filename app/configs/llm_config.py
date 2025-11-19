@@ -21,7 +21,7 @@ class LLMConfig(BaseSettings):
     LLM_MODEL: str | None = None
     FREE_LLM_MODEL: str | None = "Qwen/Qwen3-8B"
     DEFAULT_LLM_TEMPERATURE: float = 0.0
-    MAX_TOKENS: int = 32048
+    MAX_TOKENS: int | None = 32048
 
 
     # Embeddings config
@@ -48,6 +48,6 @@ settings = LLMConfig()
 
 if __name__ == '__main__':
     config = LLMConfig()
-    print(config.ALI_KEY)
+    print(config.API_KEY)
     print(ROOT_DIR)
     print(config.LLM_MODEL)

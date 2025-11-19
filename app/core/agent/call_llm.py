@@ -10,3 +10,7 @@ client = ChatOpenAI(
             max_tokens=llm_config.MAX_TOKENS,
             base_url=llm_config.SILICON_BASE_URL,
         )
+
+if __name__ == '__main__':
+    response = client.invoke("你好！")
+    print(response)

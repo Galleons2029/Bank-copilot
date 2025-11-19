@@ -48,28 +48,7 @@ CHUNK_CONTEXT_PROMPT = """
 
 
 def situate_context(doc: str, chunk: str) -> str:
-    response = client.invoke(
-        model="claude-3-haiku-20240307",
-        max_tokens=1024,
-        temperature=0.0,
-        messages=[
-            {
-                "role": "user", 
-                "content": [
-                    {
-                        "type": "text",
-                        "text": DOCUMENT_CONTEXT_PROMPT.format(doc_content=doc),
-                        "cache_control": {"type": "ephemeral"} #we will make use of prompt caching for the full documents
-                    },
-                    {
-                        "type": "text",
-                        "text": CHUNK_CONTEXT_PROMPT.format(chunk_content=chunk),
-                    }
-                ]
-            }
-        ],
-        extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"}
-    )
+    response = client.invoke()
     return response
 
 

@@ -2,12 +2,12 @@
 
 首先，请仔细阅读完整的文章内容：
 <full_article>
-{{FULL_ARTICLE}}
+{full_article}
 </full_article>
 
 现在，以下是需要补充上下文的单个原始文本块：
 <original_chunk>
-{{ORIGINAL_CHUNK}}
+{original_chunk}
 </original_chunk>
 
 请执行以下操作：

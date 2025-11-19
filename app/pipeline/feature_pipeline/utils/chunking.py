@@ -1,4 +1,4 @@
-from langchain.text_splitter import (
+from langchain_text_splitters import (
     RecursiveCharacterTextSplitter,
     SentenceTransformersTokenTextSplitter,
 )
@@ -6,50 +6,56 @@ from langchain.text_splitter import (
 from app.pipeline.feature_pipeline.config import settings
 from app.configs import llm_config
 from app.core.agent.call_llm import client
+from app.core.prompts import CONTEXTUAL_RETRIEVAL_PROMPT
+
 
 def chunk_text(text: str) -> list[str]:
-    """
-    使用递归分词，详见：
-    https://python.langchain.com/docs/how_to/recursive_text_splitter/
-    """
-    character_splitter = RecursiveCharacterTextSplitter(
-        separators=["\n\n"], chunk_size=500, chunk_overlap=0
+    """Split raw text following LangChain's recursive splitter recommendations."""
+    if not text or not text.strip():
+        return []
+
+    # Recommended separators for languages without explicit word boundaries.
+    recursive_splitter = RecursiveCharacterTextSplitter(
+        separators=[
+            "\n\n",
+            "\n",
+            " ",
+            ".",
+            ",",
+            "\u200b",  # zero-width space
+            "\uff0c",  # Chinese fullwidth comma
+            "\u3001",  # ideographic comma
+            "\uff0e",  # Chinese fullwidth period
+            "\u3002",  # ideographic period
+            "",
+        ],
+        chunk_size=500,
+        chunk_overlap=0,
+        length_function=len,
+        is_separator_regex=False,
     )
-    text_split = character_splitter.split_text(text)
 
     token_splitter = SentenceTransformersTokenTextSplitter(
         chunk_overlap=50,
-        tokens_per_chunk=settings.EMBEDDING_MODEL_MAX_INPUT_LENGTH,
         model_name=llm_config.EMBEDDING_MODEL_PATH,
     )
-    chunks = []
 
-    for section in text_split:
+    chunks: list[str] = []
+    for section in recursive_splitter.split_text(text):
         chunks.extend(token_splitter.split_text(section))
 
-    return chunks
+    return [chunk for chunk in chunks if chunk.strip()]
 
-
-DOCUMENT_CONTEXT_PROMPT = """
-<document>
-{doc_content}
-</document>
-"""
-
-CHUNK_CONTEXT_PROMPT = """
-以下是我们希望在整个文档中定位的片段
-<chunk>
-{chunk_content}
-</chunk>
-
-请简要说明该片段在整体文档中的位置，以便提升该片段的搜索检索效果。
-只回答简洁的上下文说明，不要包含其他内容。
-"""
 
 
 def situate_context(doc: str, chunk: str) -> str:
-    response = client.invoke()
-    return response
+    """Use the centralized contextual retrieval prompt to enrich a chunk."""
+    prompt = CONTEXTUAL_RETRIEVAL_PROMPT.format(
+        full_article=doc,
+        original_chunk=chunk,
+    )
+    response = client.invoke(prompt)
+    return getattr(response, "content", str(response))
 
 
 
@@ -64,6 +70,7 @@ def main():
 
     CHUNKS = chunk_text(st)
     print(CHUNKS)
+    #print(CONTEXTUAL_RETRIEVAL_PROMPT)
 
 
 

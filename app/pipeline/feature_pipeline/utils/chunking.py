@@ -1,16 +1,11 @@
-from langchain_text_splitters import (
-    RecursiveCharacterTextSplitter,
-    SentenceTransformersTokenTextSplitter,
-)
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from app.pipeline.feature_pipeline.config import settings
-from app.configs import llm_config
 from app.core.agent.call_llm import client
 from app.core.prompts import CONTEXTUAL_RETRIEVAL_PROMPT
 
 
 def chunk_text(text: str) -> list[str]:
-    """Split raw text following LangChain's recursive splitter recommendations."""
+    """Split raw text with the recursive splitter, then attach generated context."""
     if not text or not text.strip():
         return []
 
@@ -35,16 +30,14 @@ def chunk_text(text: str) -> list[str]:
         is_separator_regex=False,
     )
 
-    token_splitter = SentenceTransformersTokenTextSplitter(
-        chunk_overlap=50,
-        model_name=llm_config.EMBEDDING_MODEL_PATH,
-    )
+    enriched_chunks: list[str] = []
+    for chunk in recursive_splitter.split_text(text):
+        if not chunk.strip():
+            continue
+        context = situate_context(text, chunk)
+        enriched_chunks.append(f"{chunk}\n\n{context}".strip())
 
-    chunks: list[str] = []
-    for section in recursive_splitter.split_text(text):
-        chunks.extend(token_splitter.split_text(section))
-
-    return [chunk for chunk in chunks if chunk.strip()]
+    return enriched_chunks
 
 
 

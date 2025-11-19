@@ -17,3 +17,7 @@ __pycache__/
 
 # VSCode settings
 .vscode/
+
+# Ignore log files
+*.log
+app/pipeline/feature_pipeline/utils/logs

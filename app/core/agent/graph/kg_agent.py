@@ -179,7 +179,7 @@ async def llm_call(state: State):
         Ensure that you ask the user for the above if you don't already know.
 
         Facts about the user and their conversation:
-        {facts_string or 'No facts about the user and their conversation'}"""
+        {facts_string or 'No facts about the user and their conversation'}""" # noqa: E501
     )
 
     messages = [system_message] + state['messages']

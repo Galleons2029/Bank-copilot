@@ -21,6 +21,8 @@ from tavily import TavilyClient
 from deep_research_from_scratch.state_research import Summary
 from deep_research_from_scratch.prompts import summarize_webpage_prompt
 
+from langchain_openai import ChatOpenAI
+
 # ===== UTILITY FUNCTIONS =====
 
 def get_today_str() -> str:
@@ -42,7 +44,6 @@ def get_current_dir() -> Path:
 
 # ===== CONFIGURATION =====
 
-from langchain_openai import ChatOpenAI
 summarization_model = ChatOpenAI(model='deepseek-ai/DeepSeek-V3',
             api_key="sk-ekgglsdtxnkcjrymhorpuhfgidmtctmkcxqyhohamtkvjosn",
             base_url="https://api.siliconflow.cn/v1",

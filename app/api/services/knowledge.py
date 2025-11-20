@@ -42,6 +42,19 @@ CHUNK_FILTER = {
     ]
 }
 
+async def format_chunk(point: dict[str, Any]) -> KnowledgeChunk:
+    """Format a Qdrant point into a KnowledgeChunk."""
+    payload = point.get("payload") or {}
+    return KnowledgeChunk(
+        id=str(point.get("id")),
+        text=str(payload.get("text", "")),
+        title=str(payload.get("title", "")) if payload.get("title") is not None else None,
+        source=str(payload.get("source", "")) if payload.get("source") is not None else None,
+        tags=[str(tag) for tag in payload.get("tags", []) if isinstance(tag, str)],
+        metadata=payload.get("metadata", {}) or {},
+        updated_at=str(payload.get("updatedAt")) if payload.get("updatedAt") is not None else None,
+    )
+
 
 async def list_knowledge_bases() -> list[KnowledgeBase]:
     """Return all Qdrant collections enriched with metadata."""
@@ -163,7 +176,7 @@ async def fetch_chunks(
     )
     result = response.get("result", {})
     points = result.get("points", [])
-    chunks = [_format_chunk(point) for point in points]
+    chunks = [await format_chunk(point) for point in points]
     return chunks, result.get("next_page_offset")
 
 
@@ -184,7 +197,7 @@ async def get_chunk(collection: str, chunk_id: str) -> KnowledgeChunk | None:
     if not points:
         return None
 
-    return _format_chunk(points[0])
+    return await format_chunk(points[0])
 
 
 async def delete_chunk(collection: str, chunk_id: str) -> None:

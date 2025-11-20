@@ -20,6 +20,7 @@ from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from app.core.agent.tools.prompts import SYSTEM_PROMPT
 from operator import add
+from dotenv import load_dotenv
 
 # ====== Core Dependencies ======
 from app.core.db.workflow.bank_flow import (
@@ -492,7 +493,6 @@ tools = [
     think_tool,
 ]
 tools_by_name = {t.name: t for t in tools}
-from dotenv import load_dotenv
 load_dotenv()
 # Use your preferred model
 api_key = os.getenv("SILICON_API_KEY")

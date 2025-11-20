@@ -3,11 +3,6 @@
 # @Author : Galleons
 # @File   : supervisor.py
 
-"""
-这里是文件说明
-"""
-
-
 """Multi-agent supervisor for coordinating research across multiple specialized agents.
 
 This module implements a supervisor pattern where:
@@ -18,11 +13,8 @@ This module implements a supervisor pattern where:
 The supervisor uses parallel research execution to improve efficiency while
 maintaining isolated context windows for each research topic.
 """
-
 import asyncio
-
 from typing_extensions import Literal
-
 from langchain_core.messages import (
     HumanMessage,
     BaseMessage,
@@ -41,6 +33,8 @@ from app.core.agent.states.state_multi_agent_supervisor import (
     ResearchComplete
 )
 from app.core.agent.tools.supervisor_tools import get_today_str, think_tool
+from langchain_openai import ChatOpenAI
+
 
 def get_notes_from_tool_calls(messages: list[BaseMessage]) -> list[str]:
     """Extract research notes from ToolMessage objects in supervisor message history.
@@ -74,7 +68,6 @@ except ImportError:
 
 
 # ===== CONFIGURATION =====
-from langchain_openai import ChatOpenAI
 supervisor_tools = [ConductResearch, ResearchComplete, think_tool]
 supervisor_model = ChatOpenAI(model='deepseek-ai/DeepSeek-V3',
             api_key="sk-ekgglsdtxnkcjrymhorpuhfgidmtctmkcxqyhohamtkvjosn",

@@ -69,8 +69,8 @@ dev = [
 ]
 
 [tool.ruff]
-# Set the maximum line length to 121.
-line-length = 121
+# Set the maximum line length to 150.
+line-length = 150
 
 [tool.ruff.lint]
 # Add the `line-too-long` rule to the enforced rule set. By default, Ruff omits rules that

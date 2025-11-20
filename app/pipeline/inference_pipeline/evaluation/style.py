@@ -40,7 +40,7 @@ Instruction: {input}
 Answer: {output}
 
 Respond strictly as JSON with keys "score" (integer from 1 to 3) and "reason" (short explanation).
-"""
+"""# noqa: E501
 
     def score(
         self,

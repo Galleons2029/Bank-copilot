@@ -6,11 +6,7 @@ including user clarification, research brief generation, and report synthesis.
 from langchain_core.prompts import ChatPromptTemplate
 
 
-WRITE_QUERY_PROMPT = ChatPromptTemplate(
-    [
-        (
-            "system",
-            """
+WRITE_PROMPT = """
 You are an agent designed to interact with a SQL database.
 Given an input question, create a syntactically correct {dialect} query to run to help find the answer.
 
@@ -135,7 +131,13 @@ Respond in the following format:
 ```{dialect}
 GENERATED QUERY
 ```
-""".strip(),
+""" # noqa: E501
+
+WRITE_QUERY_PROMPT = ChatPromptTemplate(
+    [
+        (
+            "system",
+            WRITE_PROMPT.strip(),
         ),
         ("user", "Question: {input}"),
     ]
@@ -210,7 +212,8 @@ detailed_info_prompt = """
 字段说明:
 - ccy_int (TEXT): 分户余额表中的币种编码
 - ccy_symb (TEXT): 其他表中的币种符号
-"""
+""" # noqa: E501
+
 CHECK_QUERY_PROMPT = ChatPromptTemplate(
     [
         (
@@ -270,13 +273,10 @@ DO NOT write the corrected query in the response. You only need to report the mi
             ```""",
         ),
     ]
-)
+) # noqa: E501
 
-REWRITE_QUERY_PROMPT = ChatPromptTemplate(
-    [
-        (
-            "system",
-            """
+
+SYSTEM_PROMPT_ROLE = """
 You are an agent designed to interact with a SQL database.
 Your task is to rewrite the previous {dialect} query to fix errors based on the provided feedback.
 - Only modify the parts of the query that are incorrect or suboptimal according to the feedback.
@@ -403,7 +403,13 @@ Respond ONLY with the rewritten query in the following format:
 REWRITTEN QUERY
 ```
 Do not include any explanations or comments outside the code block.
-""".strip(),
+"""# noqa: E501,
+
+REWRITE_QUERY_PROMPT = ChatPromptTemplate(
+    [
+        (
+            "system",
+            SYSTEM_PROMPT_ROLE.strip(),
         ),
         (
             "user",
@@ -424,7 +430,7 @@ Do not include any explanations or comments outside the code block.
 ## Feedback ##
 {feedback}
 
-Please rewrite the query.""",
+Please rewrite the query.""" 
         ),
     ]
 )
@@ -452,7 +458,7 @@ Rules:
 Key Clarifications:
 - Day 1 (e.g., 20251101) is **structurally unreliable** for reconciliation: `history_total` lacks opening balances, so `tot_mint_dif` on Day 1 is often artificially large. Exclude it from analysis.
 - Red/blue reversals (`rd_flg = 'R'`) indicate manual corrections. Multiple such entries in a short span may explain Type 3 behavior.
-"""
+""" # noqa: E501
 INTERPRETATION_PROMPT = """你是一名资深银行会计顾问，请根据用户原始问题和SQL查询结果，生成专业、清晰、有业务洞察的自然语言回复。
 
 要求：
@@ -476,4 +482,4 @@ INTERPRETATION_PROMPT = """你是一名资深银行会计顾问，请根据用�
 💡 提示：红字凭证通常用于更正错账、退货退款或调整分录，建议核查原始业务背景。”
 
 现在，请基于以下信息生成回复：
-"""
+""" # noqa: E501

@@ -309,8 +309,8 @@ def _print_account_result(state: AgentState):
         logging.info(f"→ 传票历史表跟分户余额表其中一个表存在对应的{org}, {sbj}, {ccy}, {acg_dt}丢失，请检查。")
     for i, account in enumerate(inconsistent_accounts[:30], start=1):
         logging.info(
-            f" [{i}] 账号: {account['acct_num']}, 差异: {account['difference']:.4f}, 错误率: {account['error_rate']:.6f}%,借贷发生额: {account['history_balance_diff']},分户差额: {account['individual_balance_diff']}"
-        )  # noqa: E501
+            f" [{i}] 账号: {account['acct_num']}, 差异: {account['difference']:.4f}, 错误率: {account['error_rate']:.6f}%,借贷发生额: {account['history_balance_diff']},分户差额: {account['individual_balance_diff']}"  # noqa: E501
+        )
 
     logging.info("-" * 80 + "\n")
 

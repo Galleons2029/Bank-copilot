@@ -1,5 +1,6 @@
 from typing import Self, List
 import logging
+import time
 
 import pika
 from pika.adapters.blocking_connection import BlockingChannel
@@ -51,39 +52,50 @@ class RabbitMQConnection:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    def connect(self):
-        try:
-            # 禁用 Pika 的所有子模块日志
-            for logger_name in [
-                "pika",
-                "pika.connection",
-                "pika.channel",
-                "pika.adapters",
-                "pika.adapters.utils",
-                "pika.adapters.utils.io_services_utils",
-                "pika.adapters.blocking_connection",
-            ]:
-                logging.getLogger(logger_name).setLevel(logging.ERROR)
-                logging.getLogger(logger_name).propagate = False
+    def connect(self, max_retries: int = 6, retry_delay: int = 5):
+        attempt = 0
+        while True:
+            try:
+                # 禁用 Pika 的所有子模块日志
+                for logger_name in [
+                    "pika",
+                    "pika.connection",
+                    "pika.channel",
+                    "pika.adapters",
+                    "pika.adapters.utils",
+                    "pika.adapters.utils.io_services_utils",
+                    "pika.adapters.blocking_connection",
+                ]:
+                    logging.getLogger(logger_name).setLevel(logging.ERROR)
+                    logging.getLogger(logger_name).propagate = False
 
-            credentials = pika.PlainCredentials(self.username, self.password)
-            self._connection = pika.BlockingConnection(
-                pika.ConnectionParameters(
-                    host=self.host,
-                    port=self.port,
-                    virtual_host=self.virtual_host,
-                    credentials=credentials,
+                credentials = pika.PlainCredentials(self.username, self.password)
+                self._connection = pika.BlockingConnection(
+                    pika.ConnectionParameters(
+                        host=self.host,
+                        port=self.port,
+                        virtual_host=self.virtual_host,
+                        credentials=credentials,
+                    )
                 )
-            )
-            # 在连接成功后，检查并初始化队列
-            with self._connection.channel() as channel:
-                for queue_name in self.queue_names:
-                    self._initialize_queue(channel, queue_name)
+                # 在连接成功后，检查并初始化队列
+                with self._connection.channel() as channel:
+                    for queue_name in self.queue_names:
+                        self._initialize_queue(channel, queue_name)
+                return
 
-        except pika.exceptions.AMQPConnectionError as e:
-            logger.exception("连接RabbitMQ失败：")
-            if not self.fail_silently:
-                raise e
+            except pika.exceptions.AMQPConnectionError as e:
+                attempt += 1
+                if attempt >= max_retries:
+                    logger.exception("连接RabbitMQ失败：")
+                    if not self.fail_silently:
+                        raise e
+                    return
+                logger.warning(
+                    "连接RabbitMQ失败，准备重试",
+                    extra={"attempt": attempt, "max_retries": max_retries, "host": self.host, "port": self.port},
+                )
+                time.sleep(retry_delay)
 
     def is_connected(self) -> bool:
         return self._connection is not None and self._connection.is_open

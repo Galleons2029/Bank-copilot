@@ -2,12 +2,24 @@ services:
   mq:
     image: rabbitmq:4-management
     container_name: mq
+    environment:
+      # Allow the builtin guest user to connect from other containers
+      RABBITMQ_CONFIG_FILE: /etc/rabbitmq/rabbitmq.conf
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
     ports:
       - "5672:5672"
       - "15672:15672"
     volumes:
       - ./data/rabbitmq/data/:/var/lib/rabbitmq/
       - ./data/rabbitmq/log/:/var/log/rabbitmq
+      - ./.docker/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
     restart: always
 
   qdrant:
@@ -102,8 +114,10 @@ services:
     env_file:
       - .env
     depends_on:
-      - mq
-      - qdrant
+      mq:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
     restart: always
 
   app:
@@ -119,10 +133,14 @@ services:
     env_file:
       - .env
     depends_on:
-      - sql_service
-      - dragonfly
-      - mq
-      - qdrant
+      sql_service:
+        condition: service_started
+      dragonfly:
+        condition: service_started
+      mq:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
     restart: always
 
   langgraph:

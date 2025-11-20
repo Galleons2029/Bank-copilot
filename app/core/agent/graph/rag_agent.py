@@ -35,14 +35,7 @@ langfuse = Langfuse(
 
 langfuse_handler = CallbackHandler()
 
-QDRANT_COLLECTION = "zsk_test1"
-
-
-client = QdrantClient(
-    host="localhost",
-    port=6333,
-)
-embedding_model = OpenAIEmbeddings(api_key=llm_config.SILICON_KEY, base_url=llm_config.SILICON_BASE_URL, model="BAAI/bge-m3")
+QDRANT_COLLECTION = "zsk_test111"
 
 
 # @tool("search_tool")

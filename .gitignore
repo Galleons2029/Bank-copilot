@@ -21,3 +21,4 @@ __pycache__/
 # Ignore log files
 *.log
 app/pipeline/feature_pipeline/utils/logs
+app/core/agent/graph/logs

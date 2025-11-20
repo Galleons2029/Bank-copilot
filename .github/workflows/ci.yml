@@ -1,72 +1,62 @@
-name: CI
+name: Backend CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
+  workflow_dispatch:
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
+env:
+  UV_CACHE_DIR: ~/.cache/uv
+  UV_PYTHON_DOWNLOADS: 0
+
 jobs:
-  test:
+  backend:
+    name: Lint, Format, Test
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.12"]
 
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install uv
-      uses: astral-sh/setup-uv@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
 
-    - name: Display Python version
-      run: python -c "import sys; print(sys.version)"
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.UV_CACHE_DIR }}
+          key: ${{ runner.os }}-uv-${{ matrix.python-version }}-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-${{ matrix.python-version }}-
 
-    - name: Install dependencies
-      run: |
-        uv sync --locked
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
-    - name: Lint with ruff
-      run: |
-        uv run ruff check .
+      - name: Display Python version
+        run: python -c "import sys; print(sys.version)"
 
-    - name: Check formatting with ruff
-      run: |
-        uv run ruff format --check .
+      - name: Install dependencies
+        run: uv sync --locked --all-extras --dev
 
-    - name: Run tests
-      run: |
-        uv run pytest test
+      - name: Lint with ruff
+        run: uv run ruff check .
 
-  docker:
-    runs-on: ubuntu-latest
-    needs: test
-    if: github.ref == 'refs/heads/main'
+      - name: Check formatting with ruff
+        run: uv run ruff format --check .
 
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Docker Buildx
-      uses: data/setup-buildx-action@v3
-
-    - name: Login to Docker Hub
-      uses: data/login-action@v3
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-    - name: Build and push Docker image
-      uses: data/build-push-action@v5
-      with:
-        context: .
-        file: .data/Dockerfile.app
-        push: true
-        tags: ${{ secrets.DOCKERHUB_USERNAME }}/minicascade-rag:latest
+      - name: Run tests
+        run: uv run pytest test

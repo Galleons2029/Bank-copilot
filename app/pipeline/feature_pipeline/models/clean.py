@@ -61,7 +61,7 @@ class RepositoryCleanedModel(VectorDBDataModel):
         }
 
         return self.entry_id, data
-    
+
 
 class DocumentCleanedModel(VectorDBDataModel):
     entry_id: str

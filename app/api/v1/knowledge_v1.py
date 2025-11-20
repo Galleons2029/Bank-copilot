@@ -55,11 +55,7 @@ async def update_collection(
     collection: str,
     payload: KnowledgeBaseUpdateRequest,
 ) -> KnowledgeBaseResponse:
-    if (
-        payload.display_name is None
-        and payload.description is None
-        and payload.tags is None
-    ):
+    if payload.display_name is None and payload.description is None and payload.tags is None:
         raise HTTPException(status_code=400, detail="请至少提供一个需要更新的字段")
 
     await knowledge_service.upsert_metadata(collection, payload)

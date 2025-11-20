@@ -11,18 +11,17 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-ROOT_DIR = Path(__file__).resolve().parents[2] / '.env'
+ROOT_DIR = Path(__file__).resolve().parents[2] / ".env"
 
 
 class LLMConfig(BaseSettings):
-    model_config = SettingsConfigDict(env_file=ROOT_DIR, env_file_encoding="utf-8", extra='ignore')
+    model_config = SettingsConfigDict(env_file=ROOT_DIR, env_file_encoding="utf-8", extra="ignore")
 
     # LLM config
     LLM_MODEL: str | None = None
     FREE_LLM_MODEL: str | None = "Qwen/Qwen3-8B"
     DEFAULT_LLM_TEMPERATURE: float = 0.0
     MAX_TOKENS: int | None = 100000
-
 
     # Embeddings config
     EMBEDDING_MODEL_ID: str = "bge-m3"
@@ -34,8 +33,6 @@ class LLMConfig(BaseSettings):
     # Rerank config
     RERANK_MODEL: str = "bge-m3"
 
-
-
     # 硅基流动API
     SILICON_KEY: str | None = None
     SILICON_BASE_URL: str | None = "https://api.siliconflow.cn/v1"
@@ -43,10 +40,11 @@ class LLMConfig(BaseSettings):
 
     API_KEY: str | None = None
 
+
 settings = LLMConfig()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     config = LLMConfig()
     print(config.API_KEY)
     print(ROOT_DIR)

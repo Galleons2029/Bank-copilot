@@ -42,6 +42,7 @@ CHUNK_FILTER = {
     ]
 }
 
+
 async def format_chunk(point: dict[str, Any]) -> KnowledgeChunk:
     """Format a Qdrant point into a KnowledgeChunk."""
     payload = point.get("payload") or {}
@@ -431,10 +432,5 @@ def _extract_error(response: httpx.Response) -> str:
     if isinstance(payload, str):
         return payload
     if isinstance(payload, dict):
-        return (
-            payload.get("status", {}).get("error")
-            or payload.get("error")
-            or payload.get("detail")
-            or response.reason_phrase
-        )
+        return payload.get("status", {}).get("error") or payload.get("error") or payload.get("detail") or response.reason_phrase
     return response.reason_phrase

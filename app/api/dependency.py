@@ -6,6 +6,7 @@
 """
 依赖配置脚本
 """
+
 from langfuse import Langfuse
 from app.configs import agent_config as settings
 from app.configs import db_config
@@ -21,12 +22,9 @@ langfuse = Langfuse(
 )
 
 
-
 DB_URL = db_config.POSTGRES_URL
 
-engine = create_engine(
-    DB_URL, connect_args={"check_same_thread": False}
-)
+engine = create_engine(DB_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()

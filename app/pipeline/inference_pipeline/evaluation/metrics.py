@@ -23,8 +23,7 @@ class EvaluationMetric(Protocol):
         output: str,
         reference: str,
         context: str | None = None,
-    ) -> ScoreResult:
-        ...
+    ) -> ScoreResult: ...
 
 
 def _normalize_text(value: str | None) -> str:
@@ -32,11 +31,7 @@ def _normalize_text(value: str | None) -> str:
 
 
 def _split_sentences(text: str) -> list[str]:
-    return [
-        sentence.strip().lower()
-        for sentence in re.split(r"[.!?]+", text)
-        if sentence.strip()
-    ]
+    return [sentence.strip().lower() for sentence in re.split(r"[.!?]+", text) if sentence.strip()]
 
 
 def _tokenize(text: str) -> list[str]:
@@ -91,13 +86,9 @@ class HallucinationMetric:
                 reason="No sentences or reference text available for comparison.",
             )
 
-        grounded = [
-            sentence for sentence in sentences if sentence and sentence in reference_text
-        ]
+        grounded = [sentence for sentence in sentences if sentence and sentence in reference_text]
         value = len(grounded) / len(sentences)
-        reason = (
-            f"{len(grounded)}/{len(sentences)} answer sentences overlap with reference."
-        )
+        reason = f"{len(grounded)}/{len(sentences)} answer sentences overlap with reference."
 
         return ScoreResult(name=self.name, value=value, reason=reason)
 

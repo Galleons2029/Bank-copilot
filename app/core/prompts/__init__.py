@@ -29,16 +29,10 @@ def load_prompt_template(prompt_path: str) -> str:
 
 
 # Main Agent
-SYSTEM_PROMPT = load_system_prompt(prompt_path="system.md",
-                                   agent_name="chief agent"
-                                   )
+SYSTEM_PROMPT = load_system_prompt(prompt_path="system.md", agent_name="chief agent")
 
-COORDINATOR_PROMPT = load_system_prompt(prompt_path="coordinator.md",
-                                        agent_name="Task Coordinator Agent"
-                                        )
+COORDINATOR_PROMPT = load_system_prompt(prompt_path="coordinator.md", agent_name="Task Coordinator Agent")
 
-INSTRUCTOR_PROMPT = load_system_prompt(prompt_path="instructor.md",
-                                       agent_name="Task Instructor Agent"
-                                       )
+INSTRUCTOR_PROMPT = load_system_prompt(prompt_path="instructor.md", agent_name="Task Instructor Agent")
 
 CONTEXTUAL_RETRIEVAL_PROMPT = load_prompt_template(prompt_path="contextual_retrieval.md")

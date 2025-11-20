@@ -27,6 +27,7 @@ from app.configs import (
     agent_config as settings,
 )
 
+
 def get_logger(cls: str):
     return structlog.get_logger().bind(cls=cls)
 
@@ -217,6 +218,7 @@ def setup_logging() -> None:
         logger_obj.propagate = pika_debug_enabled
         # Hard-disable when not debugging to silence verbose socket traces.
         logger_obj.disabled = disable_noisy_pika
+
 
 # Initialize logging at import-time and export a shared logger
 setup_logging()

@@ -12,6 +12,7 @@ from langgraph.graph.message import add_messages
 
 # ===== 示例 1: 在普通消息中返回 Mermaid 图表 =====
 
+
 def create_flowchart_response():
     """
     返回包含流程图的消息
@@ -32,11 +33,12 @@ graph TD
 
 这个流程图展示了系统如何智能地决定是否需要检索相关信息。
 """
-    
+
     return AIMessage(content=content)
 
 
 # ===== 示例 2: 序列图展示交互过程 =====
+
 
 def create_sequence_diagram_response():
     """
@@ -68,14 +70,16 @@ sequenceDiagram
 
 整个过程通常在 2-3 秒内完成。
 """
-    
+
     return AIMessage(content=content)
 
 
 # ===== 示例 3: 在 LangGraph 节点中使用 =====
 
+
 class State(TypedDict):
     """状态定义"""
+
     messages: Annotated[list, add_messages]
     need_diagram: bool
 
@@ -83,19 +87,16 @@ class State(TypedDict):
 def analyze_query(state: State) -> State:
     """分析用户查询"""
     last_message = state["messages"][-1]
-    
+
     # 判断是否需要图表说明
     need_diagram = "流程" in last_message.content or "架构" in last_message.content
-    
-    return {
-        "messages": state["messages"],
-        "need_diagram": need_diagram
-    }
+
+    return {"messages": state["messages"], "need_diagram": need_diagram}
 
 
 def generate_response(state: State) -> State:
     """生成响应"""
-    
+
     if state.get("need_diagram"):
         # 返回包含图表的响应
         response = """
@@ -121,19 +122,18 @@ graph LR
 """
     else:
         response = "这是一个普通的回答，不需要图表说明。"
-    
-    return {
-        "messages": [AIMessage(content=response)]
-    }
+
+    return {"messages": [AIMessage(content=response)]}
 
 
 # ===== 示例 4: 根据不同场景返回不同图表 =====
+
 
 def create_diagram_by_scenario(scenario: str) -> AIMessage:
     """
     根据场景返回不同类型的图表
     """
-    
+
     diagrams = {
         "architecture": """
 系统架构如下：
@@ -255,31 +255,29 @@ erDiagram
 ```
 """,
     }
-    
-    content = diagrams.get(
-        scenario, 
-        "抱歉，我不知道如何为这个场景生成图表。"
-    )
-    
+
+    content = diagrams.get(scenario, "抱歉，我不知道如何为这个场景生成图表。")
+
     return AIMessage(content=content)
 
 
 # ===== 示例 5: 与工具调用结合 =====
 
+
 def analyze_data_with_visualization(data: dict) -> AIMessage:
     """
     分析数据并返回可视化结果
     """
-    
+
     # 模拟数据分析
     total = sum(data.values())
-    percentages = {k: (v/total*100) for k, v in data.items()}
-    
+    percentages = {k: (v / total * 100) for k, v in data.items()}
+
     # 生成饼图
     pie_chart = "pie title 数据分布\n"
     for key, value in percentages.items():
         pie_chart += f'    "{key}" : {value:.1f}\n'
-    
+
     content = f"""
 数据分析完成！以下是可视化结果：
 
@@ -289,34 +287,35 @@ def analyze_data_with_visualization(data: dict) -> AIMessage:
 
 **数据说明**：
 """
-    
+
     for key, value in data.items():
         percentage = percentages[key]
         content += f"\n- **{key}**: {value} ({percentage:.1f}%)"
-    
+
     content += f"\n\n总计: {total}"
-    
+
     return AIMessage(content=content)
 
 
 # ===== 示例 6: 动态生成流程图 =====
 
+
 def generate_process_flowchart(steps: list[dict]) -> AIMessage:
     """
     根据步骤列表动态生成流程图
-    
+
     Args:
         steps: [{"id": "A", "label": "步骤1", "next": "B"}, ...]
     """
-    
+
     # 构建 Mermaid 语法
     mermaid_code = "graph TD\n"
-    
+
     for step in steps:
         step_id = step["id"]
         label = step["label"]
         next_step = step.get("next")
-        
+
         if next_step:
             if isinstance(next_step, list):
                 # 多个分支
@@ -331,7 +330,7 @@ def generate_process_flowchart(steps: list[dict]) -> AIMessage:
         else:
             # 结束节点
             mermaid_code += f"    {step_id}[{label}]\n"
-    
+
     content = f"""
 流程说明：
 
@@ -341,49 +340,42 @@ def generate_process_flowchart(steps: list[dict]) -> AIMessage:
 
 这个流程包含 {len(steps)} 个步骤。
 """
-    
+
     return AIMessage(content=content)
 
 
 # ===== 使用示例 =====
 
 if __name__ == "__main__":
-    
     # 示例 1: 简单流程图
     print("=" * 50)
     print("示例 1: 流程图")
     print("=" * 50)
     msg1 = create_flowchart_response()
     print(msg1.content)
-    
+
     # 示例 2: 序列图
     print("\n" + "=" * 50)
     print("示例 2: 序列图")
     print("=" * 50)
     msg2 = create_sequence_diagram_response()
     print(msg2.content)
-    
+
     # 示例 3: 根据场景生成
     print("\n" + "=" * 50)
     print("示例 3: 系统架构图")
     print("=" * 50)
     msg3 = create_diagram_by_scenario("architecture")
     print(msg3.content)
-    
+
     # 示例 4: 数据分析可视化
     print("\n" + "=" * 50)
     print("示例 4: 数据分析可视化")
     print("=" * 50)
-    sample_data = {
-        "Python": 35,
-        "JavaScript": 25,
-        "TypeScript": 20,
-        "Go": 15,
-        "其他": 5
-    }
+    sample_data = {"Python": 35, "JavaScript": 25, "TypeScript": 20, "Go": 15, "其他": 5}
     msg4 = analyze_data_with_visualization(sample_data)
     print(msg4.content)
-    
+
     # 示例 5: 动态流程图
     print("\n" + "=" * 50)
     print("示例 5: 动态流程图")
@@ -391,22 +383,14 @@ if __name__ == "__main__":
     process_steps = [
         {"id": "A", "label": "开始", "next": "B"},
         {"id": "B", "label": "接收请求", "next": "C"},
-        {
-            "id": "C", 
-            "label": "判断类型", 
-            "next": [
-                {"condition": "查询", "target": "D"},
-                {"condition": "分析", "target": "E"}
-            ]
-        },
+        {"id": "C", "label": "判断类型", "next": [{"condition": "查询", "target": "D"}, {"condition": "分析", "target": "E"}]},
         {"id": "D", "label": "执行查询", "next": "F"},
         {"id": "E", "label": "执行分析", "next": "F"},
-        {"id": "F", "label": "返回结果", "next": None}
+        {"id": "F", "label": "返回结果", "next": None},
     ]
     msg5 = generate_process_flowchart(process_steps)
     print(msg5.content)
-    
+
     print("\n" + "=" * 50)
     print("所有示例完成！")
     print("=" * 50)
-

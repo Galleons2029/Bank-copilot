@@ -19,7 +19,7 @@ engine = create_engine(
     pool_timeout=30,  # 获取连接超时时间
     pool_pre_ping=True,  # 预先检查连接有效性
     pool_recycle=3600,  # 连接回收时间（避免数据库断开）
-    echo=False  # 设为True可查看SQL日志（调试用）
+    echo=False,  # 设为True可查看SQL日志（调试用）
 )
 DATE_FMT = "%Y%m%d"
 START_DT = "20250601"
@@ -38,7 +38,7 @@ class PandasSQLQueryTool:
         try:
             with self.engine.connect() as conn:
                 result = pd.read_sql(query, conn, params=params)  # 直接执行SQL，无参数
-                return result.to_dict('records')
+                return result.to_dict("records")
         except Exception as e:
             logging.error(f"查询执行失败: {e}")
             logging.error(f"SQL: {query}")
@@ -51,7 +51,7 @@ def load_ccy_mapping():
     sql = "SELECT ccy_int, ccy_symb FROM ccy_mapping"
     results = execute_query_tool.invoke(sql)
     _CCY_MAPPING = {
-        row['ccy_symb']: row['ccy_int']  # symb -> int
+        row["ccy_symb"]: row["ccy_int"]  # symb -> int
         for row in results
     }
     return _CCY_MAPPING
@@ -80,35 +80,30 @@ def classify_errors(records: List[Dict[str, Any]]) -> Dict[str, List[Any]]:
 
     bucket = defaultdict(list)
     for r in records:
-        key = (r['org_num'], r['sbj_num'], r['ccy'])
+        key = (r["org_num"], r["sbj_num"], r["ccy"])
         bucket[key].append(r)
 
     type1, type2, type3 = [], [], []
 
     for key, rows in bucket.items():
         # ---------- 预处理 ----------
-        rows.sort(key=lambda x: x['dt'])
-        exist_dates = {r['dt'] for r in rows}
-        full_period = (exist_dates == date_set)  # 是否 10 天全量
-        diffs = [float(r['tot_mint_dif']) for r in rows]
+        rows.sort(key=lambda x: x["dt"])
+        exist_dates = {r["dt"] for r in rows}
+        full_period = exist_dates == date_set  # 是否 10 天全量
+        diffs = [float(r["tot_mint_dif"]) for r in rows]
         non_zero_count = sum(1 for d in diffs if d != 0)  # 不平记录条数
 
         # ---------- Type1：十天全在 + 差额恒定 ----------
         if full_period and len(set(diffs)) == 1:
-            rows[0]['is_first'] = True
+            rows[0]["is_first"] = True
             type1.append(rows[1])
             continue
 
         # ---------- Type3：且非全量 ----------
-        if (
-                not full_period
-                and non_zero_count < 10
-                and non_zero_count > 0
-        ):
+        if not full_period and non_zero_count < 10 and non_zero_count > 0:
             first_nz = next(i for i, d in enumerate(diffs) if d != 0)
             last_nz = len(diffs) - 1 - next(i for i, d in enumerate(reversed(diffs)) if d != 0)
-            rows[0]['zero_span'] = {'start': rows[first_nz]['dt'],
-                                    'end': rows[last_nz]['dt']}
+            rows[0]["zero_span"] = {"start": rows[first_nz]["dt"], "end": rows[last_nz]["dt"]}
             type3.append(rows[0])
             continue
 
@@ -117,13 +112,13 @@ def classify_errors(records: List[Dict[str, Any]]) -> Dict[str, List[Any]]:
         for i, d in enumerate(diffs):
             if i == 0 or d != diffs[i - 1]:
                 change_list.append(d)
-                change_dates.append(rows[i]['dt'])
+                change_dates.append(rows[i]["dt"])
         if len(change_list) >= 2:
-            rows[0]['change_list'] = change_list
-            rows[0]['change_dates'] = change_dates
+            rows[0]["change_list"] = change_list
+            rows[0]["change_dates"] = change_dates
             type2.append(rows[0])
 
-    return {'type1': type1, 'type2': type2, 'type3': type3}
+    return {"type1": type1, "type2": type2, "type3": type3}
 
 
 class OutputState(TypedDict):
@@ -173,40 +168,40 @@ def _print_classification_analysis(classes: Dict[str, List[Dict[str, Any]]], dis
     # 分析 Type1
     if type1_records:
         logging.info("\n【Type1 - 恒定差额错误】")
-        logging.info(
-            "分析原因：6月1日起总账户与分户合计差额恒定，业务期间分户/总账同步变动。该总分不平发生在6月1日之前，建议您往6月1日前追溯原因。")
+        logging.info("分析原因：6月1日起总账户与分户合计差额恒定，业务期间分户/总账同步变动。该总分不平发生在6月1日之前，建议您往6月1日前追溯原因。")
         logging.info("判断标准：")
         logging.info("  1. 该组(org_num, sbj_num, ccy)在查询期间内所有日期都有记录")
         logging.info("  2. 所有日期的 tot_mint_dif 值完全相同（恒定差额）")
         logging.info("  3. 说明：可能存在系统性的余额计算错误或初始余额设置问题")
         logging.info(f"\n共 {len(type1_records)} 组，详情：")
         for idx, record in enumerate(type1_records, 1):
-            logging.info(f"  [{idx}] 机构: {record.get('org_num')}, 科目: {record.get('sbj_num')}, "
-                         f"币种: {record.get('ccy')}, 差额: {record.get('tot_mint_dif')}")
+            logging.info(
+                f"  [{idx}] 机构: {record.get('org_num')}, 科目: {record.get('sbj_num')}, "
+                f"币种: {record.get('ccy')}, 差额: {record.get('tot_mint_dif')}"
+            )
 
     # 分析 Type2
     if type2_records:
         logging.info("\n【Type2 - 差额变化错误】")
         logging.info(
-            "分析原因：6月1日起总账户与分户合计产生差额不固定，业务期间分户/总账不同步变动。该总分不平发生在6月1日之前，同时中间又发生了新的错误，建议您对该账户的相关情况进行具体分析。")
+            "分析原因：6月1日起总账户与分户合计产生差额不固定，业务期间分户/总账不同步变动。该总分不平发生在6月1日之前，同时中间又发生了新的错误，建议您对该账户的相关情况进行具体分析。"
+        )
         logging.info("判断标准：")
         logging.info("  1. 在查询期间内，该组的 tot_mint_dif 值发生了至少一次变化")
         logging.info("  2. 存在多个不同的差额值（change_list 长度 ≥ 2）")
         logging.info("  3. 说明：可能在特定日期发生了交易或调整，导致差额发生变化")
         logging.info(f"\n共 {len(type2_records)} 组，详情：")
         for idx, record in enumerate(type2_records, 1):
-            change_list = record.get('change_list', [])
-            change_dates = record.get('change_dates', [])
-            logging.info(f"  [{idx}] 机构: {record.get('org_num')}, 科目: {record.get('sbj_num')}, "
-                         f"币种: {record.get('ccy')}")
+            change_list = record.get("change_list", [])
+            change_dates = record.get("change_dates", [])
+            logging.info(f"  [{idx}] 机构: {record.get('org_num')}, 科目: {record.get('sbj_num')}, 币种: {record.get('ccy')}")
             logging.info(f"      变化点: {len(change_list)} 个，差额值: {change_list}")
             logging.info(f"      变化日期: {change_dates}")
 
     # 分析 Type3
     if type3_records:
         logging.info("\n【Type3 - 差额归零错误】")
-        logging.info(
-            "分析原因：账户部分天数总分平衡，部分天数总分不平。建议借助平衡法则“当天余额=上一天余额±借方发生额±贷方发生额”进行计算找到错误")
+        logging.info("分析原因：账户部分天数总分平衡，部分天数总分不平。建议借助平衡法则“当天余额=上一天余额±借方发生额±贷方发生额”进行计算找到错误")
         logging.info("判断标准：")
         logging.info("  1. 该组在查询期间内不是所有日期都有记录（非全量）")
         logging.info("  2. 不平记录数少于总天数，但大于0")
@@ -214,9 +209,8 @@ def _print_classification_analysis(classes: Dict[str, List[Dict[str, Any]]], dis
         logging.info("  4. 说明：可能在某段时间内发生了错误，之后被纠正或自动归零")
         logging.info(f"\n共 {len(type3_records)} 组，详情：")
         for idx, record in enumerate(type3_records, 1):
-            zero_span = record.get('zero_span', {})
-            logging.info(f"  [{idx}] 机构: {record.get('org_num')}, 科目: {record.get('sbj_num')}, "
-                         f"币种: {record.get('ccy')}")
+            zero_span = record.get("zero_span", {})
+            logging.info(f"  [{idx}] 机构: {record.get('org_num')}, 科目: {record.get('sbj_num')}, 币种: {record.get('ccy')}")
             if zero_span:
                 logging.info(f"      异常日期范围: {zero_span.get('start')} 至 {zero_span.get('end')}")
 
@@ -254,14 +248,13 @@ def _print_account_result(state: AgentState):
     elif current_type == "type2":
         logging.info("\n【错误原因分析】")
         logging.info("Type2 - 差额变化错误：")
-        logging.info(
-            " 6月1日起总账户与分户合计产生差额不固定，业务期间分户/总账不同步变动。该总分不平发生在6月1日之前，同时中间又发生了新的错误.")
+        logging.info(" 6月1日起总账户与分户合计产生差额不固定，业务期间分户/总账不同步变动。该总分不平发生在6月1日之前，同时中间又发生了新的错误.")
         logging.info("  可能原因：")
         logging.info("    1. 在特定日期发生了交易或调整")
         logging.info("    2. 传票数据与分户余额数据在变化点日期不一致")
         logging.info("    3. 可能存在数据录入错误或冲正操作")
-        change_list = record.get('change_list', [])
-        change_dates = record.get('change_dates', [])
+        change_list = record.get("change_list", [])
+        change_dates = record.get("change_dates", [])
         if change_list:
             logging.info(f"  差额变化序列: {change_list}")
             logging.info(f"  变化日期: {change_dates}")
@@ -274,14 +267,14 @@ def _print_account_result(state: AgentState):
         logging.info("    1. 在某段时间内发生了错误，之后被纠正")
         logging.info("    2. 可能存在红蓝字冲销操作")
         logging.info("    3. 数据在异常期间后自动归零")
-        zero_span = record.get('zero_span', {})
+        zero_span = record.get("zero_span", {})
         if zero_span:
             logging.info(f"  异常日期范围: {zero_span.get('start')} 至 {zero_span.get('end')}")
             red_blue_result = state.get("red_blue_cancellations", {})
             if current_type == "type3" and red_blue_result:
                 summary = red_blue_result.get("summary", {})
-                #vouchers = red_blue_result.get("raw_vouchers", [])
-                #tot_records = red_blue_result.get("tot_records", [])
+                # vouchers = red_blue_result.get("raw_vouchers", [])
+                # tot_records = red_blue_result.get("tot_records", [])
                 match_result = red_blue_result.get("matches", [])
                 logging.info("\n【冲销凭证分析】")
                 logging.info(f"  {summary.get('note', '')}")
@@ -295,8 +288,9 @@ def _print_account_result(state: AgentState):
                         t = item["tot_record"]
                         diff = item["abs_diff"]
                         rd_flag = "🔴 R" if v.get("rd_flg") == "R" else "🔵 B"
-                        logging.info(f"{i:2d}. {rd_flag} 凭证 {v['vchr_num']} | 日期 {v['dt']} | 金额 {v['amt']:+.2f} "
-                                     f"≈ 差异 {t['dif']:+.2f} (差值 {diff:.4f})")
+                        logging.info(
+                            f"{i:2d}. {rd_flag} 凭证 {v['vchr_num']} | 日期 {v['dt']} | 金额 {v['amt']:+.2f} ≈ 差异 {t['dif']:+.2f} (差值 {diff:.4f})"
+                        )
 
     logging.info("\n【验证结果汇总】")
     logging.info("  History表(传票发生额):")
@@ -315,7 +309,8 @@ def _print_account_result(state: AgentState):
         logging.info(f"→ 传票历史表跟分户余额表其中一个表存在对应的{org}, {sbj}, {ccy}, {acg_dt}丢失，请检查。")
     for i, account in enumerate(inconsistent_accounts[:30], start=1):
         logging.info(
-            f" [{i}] 账号: {account['acct_num']}, 差异: {account['difference']:.4f}, 错误率: {account['error_rate']:.6f}%,借贷发生额: {account['history_balance_diff']},分户差额: {account['individual_balance_diff']}") # noqa: E501
+            f" [{i}] 账号: {account['acct_num']}, 差异: {account['difference']:.4f}, 错误率: {account['error_rate']:.6f}%,借贷发生额: {account['history_balance_diff']},分户差额: {account['individual_balance_diff']}"
+        )  # noqa: E501
 
     logging.info("-" * 80 + "\n")
 
@@ -354,11 +349,11 @@ def _validate_voucher_today(acg_dt: str, org_num: str, sbj_num: str, ccy_symb: s
     rows = execute_query_tool.invoke(sql)
     return {
         "count": len(rows),
-        "total_debit": sum(r['debit_amt'] for r in rows),
-        "total_credit": sum(r['credit_amt'] for r in rows),
-        "total_diff": sum(r['balance_diff'] for r in rows),
+        "total_debit": sum(r["debit_amt"] for r in rows),
+        "total_credit": sum(r["credit_amt"] for r in rows),
+        "total_diff": sum(r["balance_diff"] for r in rows),
         "records": rows,
-        "summary_diff": sum(r['debit_amt'] for r in rows) - sum(r['credit_amt'] for r in rows),
+        "summary_diff": sum(r["debit_amt"] for r in rows) - sum(r["credit_amt"] for r in rows),
     }
 
 
@@ -396,40 +391,38 @@ def _validate_ledger_day(acg_dt: str, org_num: str, sbj_num: str, ccy_int: str) 
     return {
         "count": len(rows),
         "records": rows,
-        "total_diff": sum(r['balance_diff'] for r in rows),
+        "total_diff": sum(r["balance_diff"] for r in rows),
     }
 
 
-def _compare_account_diffs(history_rows: List[Dict[str, Any]], individual_rows: List[Dict[str, Any]]) -> List[
-    Dict[str, Any]]:
-    history = {r['acct_num']: float(r['balance_diff']) for r in history_rows}
-    individual = {r['acct_num']: float(r['balance_diff']) for r in individual_rows}
+def _compare_account_diffs(history_rows: List[Dict[str, Any]], individual_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    history = {r["acct_num"]: float(r["balance_diff"]) for r in history_rows}
+    individual = {r["acct_num"]: float(r["balance_diff"]) for r in individual_rows}
     common = sorted(set(history) & set(individual))
     out = []
     for acct in common:
         h = abs(history[acct])
         i = abs(individual[acct])
         diff = h - i
-        out.append({
-            "acct_num": acct,
-            "history_balance_diff": h,
-            "individual_balance_diff": i,
-            "difference": diff,
-            "is_consistent": abs(diff) < 0.01,
-            "error_rate": abs(diff / h * 100) if h != 0 else 0,
-        })
+        out.append(
+            {
+                "acct_num": acct,
+                "history_balance_diff": h,
+                "individual_balance_diff": i,
+                "difference": diff,
+                "is_consistent": abs(diff) < 0.01,
+                "error_rate": abs(diff / h * 100) if h != 0 else 0,
+            }
+        )
     return out
 
 
-
-
-
 def _check_red_blue_cancellation_in_type3(
-        org_num: str,
-        sbj_num: str,
-        ccy_symb: str,
-        start_dt: str,
-        end_dt: str,
+    org_num: str,
+    sbj_num: str,
+    ccy_symb: str,
+    start_dt: str,
+    end_dt: str,
 ) -> dict[str, dict[str, str | int | float] | list[Any] | int | Any]:
     """精准匹配模式：仅比对 tot.dif 与 voucher.amt 是否相等（容差 ±0.001），返回所有匹配项"""
     if not all([org_num, sbj_num, ccy_symb, start_dt, end_dt]):
@@ -482,24 +475,20 @@ def _check_red_blue_cancellation_in_type3(
         for t in tot_records:
             t_dif = float(t["dif"])
             if abs(v_amt - t_dif) < TOLERANCE:
-                matches.append({
-                    "voucher": v,
-                    "tot_record": t,
-                    "abs_diff": abs(v_amt - t_dif)
-                })
+                matches.append({"voucher": v, "tot_record": t, "abs_diff": abs(v_amt - t_dif)})
 
     # === Step 4: 构建返回结果 ===
     summary = {
         "note": f"【冲销嫌疑匹配分析】期间 {start_dt}–{end_dt}："
-                f"共 {len(raw_vouchers)} 笔凭证，{len(tot_records)} 条差异记录；"
-                f"发现 {len(matches)} 组凭证金额与当日总差异高度吻合（误差 < {TOLERANCE}）。",
+        f"共 {len(raw_vouchers)} 笔凭证，{len(tot_records)} 条差异记录；"
+        f"发现 {len(matches)} 组凭证金额与当日总差异高度吻合（误差 < {TOLERANCE}）。",
         "match_count": len(matches),
         "tolerance_used": TOLERANCE,
         "interpretation": (
             "⚠️ 注意：此类精确匹配常见于红字冲销（R）或蓝字反向凭证操作，"
             "可能导致单日凭证金额直接体现为 tot_mint_dif。"
             "建议人工核查匹配项中的 rd_flg='R' 或异常借贷方向凭证。"
-        )
+        ),
     }
 
     return {
@@ -706,9 +695,7 @@ def node_compare(state: AgentState) -> AgentState:
         if zero_span:
             start_dt = zero_span.get("start", acg_dt)
             end_dt = zero_span.get("end", acg_dt)
-            red_blue_cancellations = _check_red_blue_cancellation_in_type3(
-                org, sbj, ccy, start_dt, end_dt
-            )
+            red_blue_cancellations = _check_red_blue_cancellation_in_type3(org, sbj, ccy, start_dt, end_dt)
             state["red_blue_cancellations"] = red_blue_cancellations
             result["red_blue_cancellations"] = red_blue_cancellations
 
@@ -745,10 +732,14 @@ def build_graph():
     g.add_edge("scan", "pick_next")
     g.add_edge("pick_next", "validate")
     g.add_edge("validate", "compare")
-    g.add_conditional_edges("compare", node_decide, {
-        "finish": "finish",
-        "next": "pick_next",
-    })
+    g.add_conditional_edges(
+        "compare",
+        node_decide,
+        {
+            "finish": "finish",
+            "next": "pick_next",
+        },
+    )
 
     return g.compile()
 

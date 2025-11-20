@@ -81,7 +81,6 @@ class RepositoryEmbeddedChunkModel(VectorDBDataModel):
         return self.chunk_id, self.embedded_content, data
 
 
-
 class DocumentEmbeddedChunkModel(VectorDBDataModel):
     entry_id: str
     knowledge_id: str
@@ -90,7 +89,7 @@ class DocumentEmbeddedChunkModel(VectorDBDataModel):
     filename: str
     chunk_id: str
     chunk_content: str
-    #hybrid_vec: dict
+    # hybrid_vec: dict
     embedded_content: np.ndarray
     user_id: str | None = None
     type: str
@@ -109,5 +108,5 @@ class DocumentEmbeddedChunkModel(VectorDBDataModel):
             "type": self.type,
         }
 
-        return self.chunk_id,  self.embedded_content, data
-        #return self.chunk_id, self.hybrid_vec, data
+        return self.chunk_id, self.embedded_content, data
+        # return self.chunk_id, self.hybrid_vec, data

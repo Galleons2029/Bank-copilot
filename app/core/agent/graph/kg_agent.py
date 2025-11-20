@@ -32,7 +32,7 @@ def setup_logging():
     logger.setLevel(logging.ERROR)
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter("%(name)s - %(levelname)s - %(message)s")
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
     return logger
@@ -52,37 +52,35 @@ embedder_config = OpenAIEmbedderConfig(
     api_key="sk-orsgnhlexlkmmlszeqwtgjhxbnimvxydtjdeyueqtamindpo",
     base_url="https://api.siliconflow.cn/v1",
     embedding_model="BAAI/bge-m3",
-    embedding_dim=1024, )
+    embedding_dim=1024,
+)
 
-openai_client = OpenAIClient(client=AsyncOpenAI(api_key="sk-orsgnhlexlkmmlszeqwtgjhxbnimvxydtjdeyueqtamindpo",
-                                                base_url="https://api.siliconflow.cn/v1"), config=config)
+openai_client = OpenAIClient(
+    client=AsyncOpenAI(api_key="sk-orsgnhlexlkmmlszeqwtgjhxbnimvxydtjdeyueqtamindpo", base_url="https://api.siliconflow.cn/v1"), config=config
+)
 embedder = OpenAIEmbedder(config=embedder_config)
 reranker_client = OpenAIRerankerClient(config=config)
 
-neo4j_uri = os.environ.get('NEO4J_URI', 'bolt://localhost:7687')
-neo4j_user = os.environ.get('NEO4J_USER', 'neo4j')
-neo4j_password = os.environ.get('NEO4J_PASSWORD', 'password')
+neo4j_uri = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
+neo4j_user = os.environ.get("NEO4J_USER", "neo4j")
+neo4j_password = os.environ.get("NEO4J_PASSWORD", "password")
 
-client = Graphiti(neo4j_uri, neo4j_user, neo4j_password,
-                  llm_client=openai_client,
-                  embedder=embedder,
-                  cross_encoder=reranker_client
-                  )
+client = Graphiti(neo4j_uri, neo4j_user, neo4j_password, llm_client=openai_client, embedder=embedder, cross_encoder=reranker_client)
 
 
 def edges_to_facts_string(entities: list[EntityEdge]):
-    return '-' + '\n- '.join([edge.fact for edge in entities])
+    return "-" + "\n- ".join([edge.fact for edge in entities])
 
 
 model = init_chat_model(
     model="deepseek-ai/DeepSeek-V3.2-Exp",
     base_url="https://api.siliconflow.cn/v1",
     api_key="sk-orsgnhlexlkmmlszeqwtgjhxbnimvxydtjdeyueqtamindpo",
-    model_provider='openai',
-    temperature=0
+    model_provider="openai",
+    temperature=0,
 )
 
-user_name = 'Galleons'
+user_name = "Galleons"
 
 # Defer node lookups to runtime (avoid awaiting at import time)
 _user_node_uuid: str | None = None
@@ -105,7 +103,7 @@ async def ensure_node_uuids(user_name_override: str | None = None) -> None:
                 logger.warning(f"No nodes found for user '{name}'")
 
         if _manybirds_node_uuid is None:
-            nl_mb = await client._search('ManyBirds', NODE_HYBRID_SEARCH_EPISODE_MENTIONS)
+            nl_mb = await client._search("ManyBirds", NODE_HYBRID_SEARCH_EPISODE_MENTIONS)
             if getattr(nl_mb, "nodes", None):
                 _manybirds_node_uuid = nl_mb.nodes[0].uuid
             else:
@@ -138,6 +136,7 @@ model_with_tools = model.bind_tools(tools)
 
 # Step 2: Define state
 
+
 class State(TypedDict):
     messages: Annotated[list, add_messages]
     user_name: str | None = "Galleons"
@@ -147,23 +146,21 @@ class State(TypedDict):
 # Step 3: Define model node
 async def llm_call(state: State):
     facts_string = None
-    if len(state['messages']) > 0:
-        last_message = state['messages'][-1]
-        graphiti_query = f'{"SalesBot" if isinstance(last_message, AIMessage) else "Galleons"}: {last_message.content}'
+    if len(state["messages"]) > 0:
+        last_message = state["messages"][-1]
+        graphiti_query = f"{'SalesBot' if isinstance(last_message, AIMessage) else 'Galleons'}: {last_message.content}"
         # search graphiti using Jess's node uuid as the center node
         # graph edges (facts) further from the Jess node will be ranked lower
         # Ensure we have a center node uuid; fall back to cached user if needed
         # await ensure_node_uuids(state.get('user_name') if isinstance(state, dict) else "Galleons")
         # center_uuid = state.get('user_node_uuid') if isinstance(state, dict) else None
         await ensure_node_uuids("Galleons")
-        center_uuid = 'c22b0fa3-4ab3-4725-9f95-dbb1b2d2df28'
+        center_uuid = "c22b0fa3-4ab3-4725-9f95-dbb1b2d2df28"
 
         if not center_uuid:
             center_uuid = _user_node_uuid
         if center_uuid:
-            edge_results = await client.search(
-                graphiti_query, center_node_uuid=center_uuid, num_results=5
-            )
+            edge_results = await client.search(graphiti_query, center_node_uuid=center_uuid, num_results=5)
             facts_string = edges_to_facts_string(edge_results)
 
     system_message = SystemMessage(
@@ -179,10 +176,10 @@ async def llm_call(state: State):
         Ensure that you ask the user for the above if you don't already know.
 
         Facts about the user and their conversation:
-        {facts_string or 'No facts about the user and their conversation'}""" # noqa: E501
+        {facts_string or "No facts about the user and their conversation"}"""  # noqa: E501
     )
 
-    messages = [system_message] + state['messages']
+    messages = [system_message] + state["messages"]
 
     response = await model.ainvoke(messages)
 
@@ -191,18 +188,19 @@ async def llm_call(state: State):
     # we're doing async here to avoid blocking the graph execution
     asyncio.create_task(
         client.add_episode(
-            name='Chatbot Response',
-            episode_body=f'{"Galleons"}: {state["messages"][-1]}\nSalesBot: {response.content}',
+            name="Chatbot Response",
+            episode_body=f"{'Galleons'}: {state['messages'][-1]}\nSalesBot: {response.content}",
             source=EpisodeType.message,
             reference_time=datetime.now(timezone.utc),
-            source_description='Chatbot',
+            source_description="Chatbot",
         )
     )
 
-    return {'messages': [response]}
+    return {"messages": [response]}
 
 
 # Step 4: Define tool node
+
 
 async def tool_node(state: dict):
     """Performs the tool call (async-safe)."""
@@ -217,6 +215,7 @@ async def tool_node(state: dict):
 
 
 # Step 5: Define logic to determine whether to end
+
 
 # Conditional edge function to route to the tool node or end based upon whether the LLM made a tool call
 def should_continue(state: State):
@@ -244,11 +243,7 @@ agent_builder.add_node("tool_node", tool_node)
 
 # Add edges to connect nodes
 agent_builder.add_edge(START, "llm_call")
-agent_builder.add_conditional_edges(
-    "llm_call",
-    should_continue,
-    ["tool_node", END]
-)
+agent_builder.add_conditional_edges("llm_call", should_continue, ["tool_node", END])
 agent_builder.add_edge("tool_node", "llm_call")
 
 # Compile the agent

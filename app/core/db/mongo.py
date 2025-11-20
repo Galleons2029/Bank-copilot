@@ -14,9 +14,7 @@ class _DisabledMongoCollection:
 
     # Methods used in codebase: insert_one, insert_many, find_one
     def _raise(self, method: str):
-        raise RuntimeError(
-            f"MongoDB is disabled (DISABLE_MONGO=true); attempted {method} on collection '{self._name}'."
-        )
+        raise RuntimeError(f"MongoDB is disabled (DISABLE_MONGO=true); attempted {method} on collection '{self._name}'.")
 
     def insert_one(self, *args, **kwargs):
         self._raise("insert_one")

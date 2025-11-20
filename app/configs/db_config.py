@@ -10,13 +10,15 @@
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
-ROOT_DIR = Path(__file__).resolve().parents[2] / '.env'
+
+ROOT_DIR = Path(__file__).resolve().parents[2] / ".env"
+
 
 class PostgresConfig(BaseSettings):
-    model_config = SettingsConfigDict(env_file=ROOT_DIR, env_file_encoding="utf-8", extra='ignore')
+    model_config = SettingsConfigDict(env_file=ROOT_DIR, env_file_encoding="utf-8", extra="ignore")
 
     DEBUG: bool = True
-    POSTGRES_DATABASE_HOST: str = 'localhost'
+    POSTGRES_DATABASE_HOST: str = "localhost"
     POSTGRES_DATABASE_PORT: int = 5433
     TIMESCALE_URL: str | None = None
 
@@ -26,9 +28,7 @@ class PostgresConfig(BaseSettings):
     PG_PASSWORD: str = "password"
     PG_DB: str = "postgres"
 
-    POSTGRES_URL: str = Field(
-        default="postgresql+psycopg_async://user:pass@localhost:5432/mydb"
-    )
+    POSTGRES_URL: str = Field(default="postgresql+psycopg_async://user:pass@localhost:5432/mydb")
 
     # 连接池
     POOL_SIZE: int = 10
@@ -39,10 +39,7 @@ class PostgresConfig(BaseSettings):
 
     @property
     def db_url_async(self) -> str:
-        return (
-            f"postgresql+asyncpg://{self.PG_USER}:{self.PG_PASSWORD}"
-            f"@{self.PG_HOST}:{self.PG_PORT}/{self.PG_DB}"
-        )
+        return f"postgresql+asyncpg://{self.PG_USER}:{self.PG_PASSWORD}@{self.PG_HOST}:{self.PG_PORT}/{self.PG_DB}"
 
     @property
     def postgres_url_async(self) -> str:
@@ -67,10 +64,10 @@ class PostgresConfig(BaseSettings):
 
 
 class QdrantConfig(BaseSettings):
-    model_config = SettingsConfigDict(env_file=ROOT_DIR, env_file_encoding="utf-8", extra='ignore')
+    model_config = SettingsConfigDict(env_file=ROOT_DIR, env_file_encoding="utf-8", extra="ignore")
 
     DEBUG: bool = True
-    COLLECTION_TEST: str | None = 'multi_demo'
+    COLLECTION_TEST: str | None = "multi_demo"
 
     MULTIMODAL_SIZE: int | None = 1024
 

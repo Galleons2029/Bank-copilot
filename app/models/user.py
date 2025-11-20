@@ -53,4 +53,3 @@ class User(BaseModel, table=True):
 
 # Avoid circular imports
 from app.models.session import Session  # noqa: E402
-

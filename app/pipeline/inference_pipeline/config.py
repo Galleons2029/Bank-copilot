@@ -33,7 +33,7 @@ class Settings(BaseSettings):
 
     # LLM Model config
     HUGGINGFACE_ACCESS_TOKEN: str | None = None
-    MODEL_ID: str = "Qwen/Qwen3-8B" # Change this with your Hugging Face model ID to test out your fine-tuned LLM
+    MODEL_ID: str = "Qwen/Qwen3-8B"  # Change this with your Hugging Face model ID to test out your fine-tuned LLM
     DEPLOYMENT_ENDPOINT_NAME: str = "twin"
 
     MAX_INPUT_TOKENS: int = 1536  # Max length of input text.
@@ -51,5 +51,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-
-

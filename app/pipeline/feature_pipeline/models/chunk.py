@@ -32,10 +32,11 @@ class RepositoryChunkModel(DataModel):
     owner_id: str
     type: str
 
+
 class DocumentChunkModel(DataModel):
     entry_id: str
     knowledge_id: str
-    doc_id: str 
+    doc_id: str
     filename: str
     path: str
     chunk_id: str

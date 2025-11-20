@@ -52,12 +52,7 @@ DEFAULT_COLLECTION = os.getenv("TRAINING_QDRANT_COLLECTION", "zsk_test1")
 
 # --- LLM setup -----------------------------------------------------------------------
 MODEL_NAME = agent_config.LLM_MODEL or llm_config.LLM_MODEL or "deepseek-ai/DeepSeek-V3"
-API_KEY = (
-    agent_config.LLM_API_KEY
-    or llm_config.SILICON_KEY
-    or os.getenv("LLM_API_KEY")
-    or os.getenv("API_KEY")
-)
+API_KEY = agent_config.LLM_API_KEY or llm_config.SILICON_KEY or os.getenv("LLM_API_KEY") or os.getenv("API_KEY")
 BASE_URL = llm_config.SILICON_BASE_URL or os.getenv("LLM_BASE_URL")
 MAX_TOKENS = agent_config.MAX_TOKENS
 
@@ -79,21 +74,15 @@ response_model = ChatOpenAI(temperature=0.2, **common_kwargs)
 class IntentAnalysis(BaseModel):
     """Structured representation of the instructor intent analysis."""
 
-    task_type: Literal["onboarding", "multidimensional_lookup", "ledger_reasoning"] = Field(
-        description="任务类型：onboarding/检索/总分不平排查"
-    )
+    task_type: Literal["onboarding", "multidimensional_lookup", "ledger_reasoning"] = Field(description="任务类型：onboarding/检索/总分不平排查")
     task_summary: str = Field(description="一句话总结用户需求与成效标准")
     needs_context: bool = Field(description="是否需要补充知识库/上下文")
     knowledge_focus: list[str] = Field(
         default_factory=list,
         description="检索或回答需要覆盖的关键实体/字段/制度",
     )
-    deliverable_tone: str = Field(
-        description="输出应当呈现的语气或表达方式，例如表格/步骤/故事线"
-    )
-    follow_up_questions: list[str] = Field(
-        default_factory=list, description="若信息不足，需要向用户确认的问题"
-    )
+    deliverable_tone: str = Field(description="输出应当呈现的语气或表达方式，例如表格/步骤/故事线")
+    follow_up_questions: list[str] = Field(default_factory=list, description="若信息不足，需要向用户确认的问题")
 
 
 class CurriculumPlan(BaseModel):
@@ -103,9 +92,7 @@ class CurriculumPlan(BaseModel):
     learn_path: list[str] = Field(description="学习材料、关键解释或上下文补充")
     build_path: list[str] = Field(description="实操流程/SQL/图表/案例步骤")
     assess_path: list[str] = Field(description="测试题、验收指标、异常诊断步骤")
-    risk_notes: list[str] = Field(
-        description="对潜在风险、依赖和下一步建议的提醒", default_factory=list
-    )
+    risk_notes: list[str] = Field(description="对潜在风险、依赖和下一步建议的提醒", default_factory=list)
 
 
 class InstructorState(TypedDict):
@@ -128,8 +115,7 @@ intent_prompt = ChatPromptTemplate.from_messages(
         ),
         (
             "human",
-            "历史对话:\n{history}\n\n当前用户最新输入:\n{question}\n"
-            "请依据3个核心场景给出最贴合的任务类型。",
+            "历史对话:\n{history}\n\n当前用户最新输入:\n{question}\n请依据3个核心场景给出最贴合的任务类型。",
         ),
     ]
 )
@@ -138,8 +124,7 @@ plan_prompt = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            f"你是Bank-Copilot的课程架构师。结合识别出的任务、学员画像以及检索到的知识，"
-            f"设计一个 Learn/Build/Assess 三段式方案。{PROJECT_CONTEXT}",
+            f"你是Bank-Copilot的课程架构师。结合识别出的任务、学员画像以及检索到的知识，设计一个 Learn/Build/Assess 三段式方案。{PROJECT_CONTEXT}",
         ),
         (
             "human",
@@ -271,9 +256,7 @@ def retrieve_context(state: InstructorState) -> InstructorState:
     query = build_retrieval_query(state["messages"], state.get("intent"))
     context_chunks: list[str]
     if VectorRetriever is None:
-        context_chunks = [
-            "知识库检索暂不可用（缺少 qdrant_client 依赖）。请先安装依赖或手动提供参考资料。"
-        ]
+        context_chunks = ["知识库检索暂不可用（缺少 qdrant_client 依赖）。请先安装依赖或手动提供参考资料。"]
     else:
         try:
             retriever = VectorRetriever(query)

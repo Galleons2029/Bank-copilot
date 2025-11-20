@@ -28,9 +28,9 @@ from langfuse import Langfuse
 from langfuse.langchain import CallbackHandler
 
 langfuse = Langfuse(
-  secret_key="sk-lf-cbd943ab-4879-44e0-8c1f-5495cbfc0a47",
-  public_key="pk-lf-49f12594-88c3-4991-be28-1e4eb4570a0d",
-  host="https://cloud.langfuse.com"
+    secret_key="sk-lf-cbd943ab-4879-44e0-8c1f-5495cbfc0a47",
+    public_key="pk-lf-49f12594-88c3-4991-be28-1e4eb4570a0d",
+    host="https://cloud.langfuse.com",
 )
 
 langfuse_handler = CallbackHandler()
@@ -38,13 +38,11 @@ langfuse_handler = CallbackHandler()
 QDRANT_COLLECTION = "zsk_test1"
 
 
-client=QdrantClient(
-    host='localhost',
+client = QdrantClient(
+    host="localhost",
     port=6333,
 )
-embedding_model = OpenAIEmbeddings(api_key=llm_config.SILICON_KEY,
-                                    base_url=llm_config.SILICON_BASE_URL,
-                                   model="BAAI/bge-m3")
+embedding_model = OpenAIEmbeddings(api_key=llm_config.SILICON_KEY, base_url=llm_config.SILICON_BASE_URL, model="BAAI/bge-m3")
 
 
 # @tool("search_tool")
@@ -55,11 +53,15 @@ embedding_model = OpenAIEmbeddings(api_key=llm_config.SILICON_KEY,
 #     search = retriever
 #     return search.run(query)
 
+
 @tool("get relevant chunk")
 def retrieve_content(query: str):
     """Retrieve information related to a query."""
     retriever = VectorRetriever(query)
-    retrieved_docs = retriever.retrieve_top_k(k=4,collections=['zsk_test1'],)
+    retrieved_docs = retriever.retrieve_top_k(
+        k=4,
+        collections=["zsk_test1"],
+    )
     context = retriever.rerank(hits=retrieved_docs, keep_top_k=3)
 
     # serialized = "\n\n".join(
@@ -68,15 +70,14 @@ def retrieve_content(query: str):
     # )
     return context
 
-tools = [retrieve_content]
 
+tools = [retrieve_content]
 
 
 class AgentState(TypedDict):
     # The add_messages function defines how an update should be processed
     # Default is to replace. add_messages says "append"
     messages: Annotated[Sequence[BaseMessage], add_messages]
-
 
 
 ### Edges
@@ -101,10 +102,9 @@ def grade_documents(state) -> Literal["generate", "rewrite"]:
 
     # LLM
     # model = ChatOpenAI(temperature=0, model="gpt-4o", streaming=True)
-    model = ChatOpenAI(model=llm_config.FREE_LLM_MODEL,
-               api_key=llm_config.SILICON_KEY,
-               base_url="https://api.siliconflow.cn/v1",
-               temperature=0,streaming=True)
+    model = ChatOpenAI(
+        model=llm_config.FREE_LLM_MODEL, api_key=llm_config.SILICON_KEY, base_url="https://api.siliconflow.cn/v1", temperature=0, streaming=True
+    )
 
     # LLM with tool and validation
     # llm_with_tool = model.with_structured_output(grade)
@@ -133,7 +133,7 @@ def grade_documents(state) -> Literal["generate", "rewrite"]:
     print("context: ", docs)
     scored_result = chain.invoke({"question": question, "context": docs})
 
-    #score = scored_result.binary_score
+    # score = scored_result.binary_score
 
     if "yes" in scored_result.content:
         print("---DECISION: DOCS RELEVANT---")
@@ -159,10 +159,7 @@ def agent(state):
     print("---CALL AGENT---")
     messages = state["messages"]
     # model = ChatOpenAI(temperature=0, streaming=True, model="gpt-4o")
-    model = ChatOpenAI(model='deepseek-ai/DeepSeek-V3',
-               api_key=llm_config.SILICON_KEY,
-               base_url="https://api.siliconflow.cn/v1",
-               temperature=0)
+    model = ChatOpenAI(model="deepseek-ai/DeepSeek-V3", api_key=llm_config.SILICON_KEY, base_url="https://api.siliconflow.cn/v1", temperature=0)
     model = model.bind_tools(tools)
     response = model.invoke(messages)
     # We return a list, because this will get added to the existing list
@@ -198,10 +195,9 @@ def rewrite(state):
 
     # Grader
     # model = ChatOpenAI(temperature=0, model="gpt-4o", streaming=True)
-    model = ChatOpenAI(model='deepseek-ai/DeepSeek-V3',
-               api_key=llm_config.SILICON_KEY,
-               base_url="https://api.siliconflow.cn/v1",
-               temperature=0, streaming=True)
+    model = ChatOpenAI(
+        model="deepseek-ai/DeepSeek-V3", api_key=llm_config.SILICON_KEY, base_url="https://api.siliconflow.cn/v1", temperature=0, streaming=True
+    )
     response = model.invoke(msg)
     return {"messages": [response]}
 
@@ -229,17 +225,16 @@ def generate(state):
         Question: {question} \n
         Context: {context} \n
         Answer: 
-        """ # noqa: E501
-        ,
+        """,  # noqa: E501
         input_variables=["context", "question"],
     )
 
     # LLM
     # llm = ChatOpenAI(model_name="gpt-4o", temperature=0, streaming=True)
-    llm = ChatOpenAI(model='deepseek-ai/DeepSeek-V3',
-               api_key=llm_config.SILICON_KEY,
-               base_url="https://api.siliconflow.cn/v1",
-               temperature=0, streaming=True)
+    llm = ChatOpenAI(
+        model="deepseek-ai/DeepSeek-V3", api_key=llm_config.SILICON_KEY, base_url="https://api.siliconflow.cn/v1", temperature=0, streaming=True
+    )
+
     # Post-processing
     def format_docs(docs):
         return "\n\n".join(doc.page_content for doc in docs)
@@ -254,7 +249,6 @@ def generate(state):
     return {"messages": [response]}
 
 
-
 # Define a new graph
 workflow = StateGraph(AgentState)
 
@@ -263,9 +257,7 @@ workflow.add_node("agent", agent)  # agent
 retrieve = ToolNode([retrieve_content])
 workflow.add_node("retrieve", retrieve)  # retrieval
 workflow.add_node("rewrite", rewrite)  # Re-writing the question
-workflow.add_node(
-    "generate", generate
-)  # Generating a response after we know the documents are relevant
+workflow.add_node("generate", generate)  # Generating a response after we know the documents are relevant
 # Call agent node to decide to retrieve or not
 workflow.add_edge(START, "agent")
 
@@ -294,14 +286,11 @@ workflow.add_edge("rewrite", "agent")
 rag_agent = workflow.compile()
 
 if __name__ == "__main__":
-    state = {
-        "messages": []
-    }
+    state = {"messages": []}
 
-    model = ChatOpenAI(model=llm_config.FREE_LLM_MODEL,
-               api_key=llm_config.SILICON_KEY,
-               base_url="https://api.siliconflow.cn/v1",
-               temperature=0,streaming=True)
+    model = ChatOpenAI(
+        model=llm_config.FREE_LLM_MODEL, api_key=llm_config.SILICON_KEY, base_url="https://api.siliconflow.cn/v1", temperature=0, streaming=True
+    )
 
     prompt = PromptTemplate(
         template="""You are a grader assessing relevance of a retrieved document to a user question. \n
@@ -321,14 +310,13 @@ if __name__ == "__main__":
     docs = """
     《数据科学》考试
     大纲 # 一、考试要求 1. 要求考生掌握统计学的基本原理,掌握数据收集和处理的基本分析方法,具备运用统计方法分析数据和解释数据的基本能力。 2. 要求考生掌握数据结构的基本概念、基本原理和基本方法。掌握数据的逻辑结构、存储结构及基本操作的实现,能够对算法进行基本的时间与空间复杂度的分析;能够运用数据结构基本原理和方法进行问题的分析与求解,具备一定算法实现的能力。 3. 要求考生掌握常用数值计算方法的基本原理,掌握求解线性和非线性代数方程组、插值与拟合、积分方程、微分方程等问题的基本方法。 # 二、考试内容 # 2.1 统计学 (1)导论:统计学的应用领域;数据的分类;统计学中的基本概念,如总体、个体、样本、变量等。 (2)数据的搜集:常见的调查方法,如概率抽样、非概率抽样;统计误差的主要来源;统计数据的质量要求。 (3)数据的图表展示:常用统计图,如条形图、帕累托图、饼图、环形图、直方图、箱型图、散点图等。 (4)数据的概括性度量:众数、中位数、平均数、四分位数、离散系数等的概念;不同类型数据的概括性度量。"
-    """ # noqa: E501
+    """  # noqa: E501
     for i in range(10):
         response = chain.invoke({"question": question, "context": docs}, config={"callbacks": [langfuse_handler]})
 
     print(type(response.content))
     print(response.content)
     print(response)
-
 
     # # Data model
     # class grade(BaseModel):

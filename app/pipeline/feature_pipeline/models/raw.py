@@ -24,7 +24,6 @@ class PostsRawModel(DataModel):
     image: Optional[str] = None
 
 
-
 class DocumentRawModel(DataModel):
     knowledge_id: str
     doc_id: str

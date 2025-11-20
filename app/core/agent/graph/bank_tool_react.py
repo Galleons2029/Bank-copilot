@@ -6,6 +6,7 @@ Follows best practices:
 - LLM controls flow via `think_tool`
 - No hidden index/state mutation in nodes
 """
+
 import os
 from typing import List, Dict, Any, Optional, Literal, TypedDict, Sequence
 from typing_extensions import Annotated
@@ -13,7 +14,10 @@ from datetime import datetime, timedelta
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, END
 from langchain_core.messages import (
-    BaseMessage, SystemMessage, HumanMessage, ToolMessage,
+    BaseMessage,
+    SystemMessage,
+    HumanMessage,
+    ToolMessage,
 )
 from langgraph.graph.message import add_messages
 from langchain_core.runnables import RunnableConfig
@@ -32,12 +36,14 @@ from app.core.db.workflow.bank_flow import (
 
 # ====== Data Models (for type safety) ======
 
+
 class DiscrepancyRecord(TypedDict):
     org_num: str
     sbj_num: str
     ccy: str
     tot_mint_dif: float
     dt: str
+
 
 class ValidationResult(TypedDict):
     org_num: str
@@ -55,6 +61,7 @@ class AuditEntry(TypedDict):
     One audit log entry per discrepancy group (or failed attempt).
     Designed for frontend table rendering.
     """
+
     # 主键 & 元信息
     org_num: str
     sbj_num: str
@@ -76,9 +83,11 @@ class AuditEntry(TypedDict):
 
     # 附加上下文
     zero_span: Optional[Dict[str, str]]  # for type3
-    change_dates: Optional[List[str]]    # for type2
+    change_dates: Optional[List[str]]  # for type2
+
 
 # ====== Tools (Pure, Typed, Docstring-Compliant) ======
+
 
 @tool(parse_docstring=True)
 def scan_and_classify_discrepancies() -> Dict[Literal["type1", "type2", "type3"], List[DiscrepancyRecord]]:
@@ -117,11 +126,7 @@ def scan_and_classify_discrepancies() -> Dict[Literal["type1", "type2", "type3"]
     # Step 2: Classify
     classified = classify_errors(discrepancies)
     # Ensure typed output
-    out: Dict[Literal["type1", "type2", "type3"], List[DiscrepancyRecord]] = {
-        "type1": [],
-        "type2": [],
-        "type3": []
-    }
+    out: Dict[Literal["type1", "type2", "type3"], List[DiscrepancyRecord]] = {"type1": [], "type2": [], "type3": []}
     for typ in ["type1", "type2", "type3"]:
         out[typ] = [
             DiscrepancyRecord(
@@ -130,11 +135,12 @@ def scan_and_classify_discrepancies() -> Dict[Literal["type1", "type2", "type3"]
                 ccy=r["ccy"],
                 tot_mint_dif=float(r["tot_mint_dif"]),
                 dt=r["dt"],
-
             )
             for r in classified.get(typ, [])
         ]
     return out
+
+
 @tool(parse_docstring=True)
 def check_red_blue_cancellation_in_type3(
     org_num: str,
@@ -214,14 +220,16 @@ def check_red_blue_cancellation_in_type3(
         else:
             impact = 0.0  # 不处理未知方向
 
-        cancellation_amounts.append({
-            "vchr_num": r["vchr_num"],
-            "acg_dt": r["acg_dt"],
-            "amt": amt,
-            "rd_flg": r["rd_flg"],
-            "ldin_flg": r["ldin_flg"],
-            "impact": impact,
-        })
+        cancellation_amounts.append(
+            {
+                "vchr_num": r["vchr_num"],
+                "acg_dt": r["acg_dt"],
+                "amt": amt,
+                "rd_flg": r["rd_flg"],
+                "ldin_flg": r["ldin_flg"],
+                "impact": impact,
+            }
+        )
         total_impact += impact
 
     # Step 3: 计算总差异值（通过查询 tot 表）
@@ -240,27 +248,26 @@ def check_red_blue_cancellation_in_type3(
     results = []
     for item in cancellation_amounts:
         contribution_pct = abs(item["impact"] / total_diff * 100) if total_diff != 0 else 0.0
-        results.append({
-            "vchr_num": item["vchr_num"],
-            "acg_dt": item["acg_dt"],
-            "amt": item["amt"],
-            "rd_flg": item["rd_flg"],
-            "ldin_flg": item["ldin_flg"],
-            "impact": round(item["impact"], 2),
-            "contribution_pct": round(contribution_pct, 2),
-        })
+        results.append(
+            {
+                "vchr_num": item["vchr_num"],
+                "acg_dt": item["acg_dt"],
+                "amt": item["amt"],
+                "rd_flg": item["rd_flg"],
+                "ldin_flg": item["ldin_flg"],
+                "impact": round(item["impact"], 2),
+                "contribution_pct": round(contribution_pct, 2),
+            }
+        )
 
     # Step 5: 添加总结性提示
     if abs(total_impact - total_diff) < 0.01:  # 容差 0.01
-        results.append({
-            "note": "✅ 冲销凭证总额与期间总差异高度吻合，疑似由冲销操作导致差异。"
-        })
+        results.append({"note": "✅ 冲销凭证总额与期间总差异高度吻合，疑似由冲销操作导致差异。"})
     elif abs(total_impact) > 0:
-        results.append({
-            "note": f"⚠️ 冲销凭证总额 ({round(total_impact, 2)}) 与总差异 ({round(total_diff, 2)}) 不一致，需进一步核查。"
-        })
+        results.append({"note": f"⚠️ 冲销凭证总额 ({round(total_impact, 2)}) 与总差异 ({round(total_diff, 2)}) 不一致，需进一步核查。"})
 
     return results
+
 
 @tool(parse_docstring=True)
 def validate_voucher_and_ledger(
@@ -300,7 +307,7 @@ def validate_voucher_and_ledger(
         raise ValueError("acg_dt must be in YYYYMMDD format")
 
     # 🔴 新增检查：是否为每月1号？
-    if acg_dt.endswith('01'):
+    if acg_dt.endswith("01"):
         return {
             "error": (
                 f"❌ Cannot validate on Day 1 ({acg_dt}).\n"
@@ -407,18 +414,22 @@ def validate_voucher_and_ledger(
         i = indiv_map[acct]
         diff = h - i
         error_rate = abs(diff / h * 100) if h != 0 else 0.0
-        comparison_results.append({
-            "acct_num": acct,
-            "history_balance_diff": round(h, 2),
-            "individual_balance_diff": round(i, 2),
-            "difference": round(diff, 2),
-            "is_consistent": abs(diff) < 0.01,
-            "error_rate": round(error_rate, 2),
-        })
-    if comparison_results==[]:
-        print( "❌ No discrepancies found between history and individual ledger.\n"
-                "Reason: All accounts have zero balance difference between history and individual ledger.\n"
-                "Recommendation: Skip this group and move to next.")
+        comparison_results.append(
+            {
+                "acct_num": acct,
+                "history_balance_diff": round(h, 2),
+                "individual_balance_diff": round(i, 2),
+                "difference": round(diff, 2),
+                "is_consistent": abs(diff) < 0.01,
+                "error_rate": round(error_rate, 2),
+            }
+        )
+    if comparison_results == []:
+        print(
+            "❌ No discrepancies found between history and individual ledger.\n"
+            "Reason: All accounts have zero balance difference between history and individual ledger.\n"
+            "Recommendation: Skip this group and move to next."
+        )
         print(f"{hist_summary}")
         print(f"{indiv_summary}")
         return {
@@ -429,7 +440,7 @@ def validate_voucher_and_ledger(
                 "❌ No discrepancies found between history and individual ledger.\n"
                 "Reason: All accounts have zero balance difference between history and individual ledger.\n"
                 "Recommendation: Skip this group and move to next."
-            )
+            ),
         }
     print(comparison_results)
     return {
@@ -461,6 +472,7 @@ def think_tool(reflection: str) -> str:
 
 # ====== State Definitions (Single Unified State) ======
 
+
 class ReconciliationState(TypedDict):
     """
     State for the bank reconciliation agent.
@@ -468,6 +480,7 @@ class ReconciliationState(TypedDict):
     Tracks message history, iteration count (for safety), current processing target,
     and accumulated validation results.
     """
+
     messages: Annotated[Sequence[BaseMessage], add_messages]
     tool_call_iterations: int
     current_target: Optional[tuple[str, str, str, str]]  # (org, sbj, ccy, dt) if processing
@@ -480,6 +493,7 @@ class ReconciliationOutput(TypedDict):
     """
     Final output of the reconciliation agent.
     """
+
     summary: Dict[str, Any]
     results: List[ValidationResult]
     messages: Annotated[Sequence[BaseMessage], add_messages]
@@ -502,13 +516,13 @@ model = ChatOpenAI(
     temperature=0.7,
     api_key=api_key,
     base_url=base_url,
-
 )
 
 model_with_tools = model.bind_tools(tools)
 
 
 # ====== Nodes ======
+
 
 def agent_node(state: ReconciliationState) -> dict:
     """LLM decides next action based on conversation history."""
@@ -531,27 +545,33 @@ def tool_node(state: ReconciliationState) -> dict:
     for tc in last_msg.tool_calls:
         tool = tools_by_name.get(tc["name"])
         if not tool:
-            outputs.append(ToolMessage(
-                content=f"Tool '{tc['name']}' not found.",
-                tool_call_id=tc["id"],
-                name=tc["name"],
-            ))
+            outputs.append(
+                ToolMessage(
+                    content=f"Tool '{tc['name']}' not found.",
+                    tool_call_id=tc["id"],
+                    name=tc["name"],
+                )
+            )
             continue
 
         try:
             result = tool.invoke(tc["args"])
-            outputs.append(ToolMessage(
-                content=str(result),
-                tool_call_id=tc["id"],
-                name=tc["name"],
-                additional_kwargs={"structured_result": result},
-            ))
+            outputs.append(
+                ToolMessage(
+                    content=str(result),
+                    tool_call_id=tc["id"],
+                    name=tc["name"],
+                    additional_kwargs={"structured_result": result},
+                )
+            )
         except Exception as e:
-            outputs.append(ToolMessage(
-                content=f"Error: {str(e)}",
-                tool_call_id=tc["id"],
-                name=tc["name"],
-            ))
+            outputs.append(
+                ToolMessage(
+                    content=f"Error: {str(e)}",
+                    tool_call_id=tc["id"],
+                    name=tc["name"],
+                )
+            )
 
     return {"messages": outputs}
 
@@ -593,35 +613,39 @@ def update_results_node(state: ReconciliationState) -> dict:
         inc = [r for r in cmp if not r["is_consistent"]]
 
         # Build ValidationResult (as before)
-        new_results.append(ValidationResult(
-            org_num=org,
-            sbj_num=sbj,
-            ccy=ccy,
-            dt=dt,
-            history_total_diff=val["history"]["total_diff"],
-            individual_total_diff=val["individual"]["total_diff"],
-            inconsistent_accounts=inc,
-            per_account_comparison=cmp,
-        ))
+        new_results.append(
+            ValidationResult(
+                org_num=org,
+                sbj_num=sbj,
+                ccy=ccy,
+                dt=dt,
+                history_total_diff=val["history"]["total_diff"],
+                individual_total_diff=val["individual"]["total_diff"],
+                inconsistent_accounts=inc,
+                per_account_comparison=cmp,
+            )
+        )
 
         # 👇 新增：构建 AuditEntry
-        new_audit_entries.append(AuditEntry(
-            org_num=org,
-            sbj_num=sbj,
-            ccy=ccy,
-            dt=dt,
-            discrepancy_type="unknown",  # LLM 应在 think_tool 中指定；可从上下文推断
-            processed_at=datetime.now().isoformat(),
-            history_total_diff=val["history"]["total_diff"],
-            individual_total_diff=val["individual"]["total_diff"],
-            diff_gap=abs(val["history"]["total_diff"] - val["individual"]["total_diff"]),
-            inconsistent_account_count=len(inc),
-            inconsistent_accounts=inc,
-            red_blue_cancellations=cancels,
-            error_message=None,
-            zero_span=None,
-            change_dates=None,
-        ))
+        new_audit_entries.append(
+            AuditEntry(
+                org_num=org,
+                sbj_num=sbj,
+                ccy=ccy,
+                dt=dt,
+                discrepancy_type="unknown",  # LLM 应在 think_tool 中指定；可从上下文推断
+                processed_at=datetime.now().isoformat(),
+                history_total_diff=val["history"]["total_diff"],
+                individual_total_diff=val["individual"]["total_diff"],
+                diff_gap=abs(val["history"]["total_diff"] - val["individual"]["total_diff"]),
+                inconsistent_account_count=len(inc),
+                inconsistent_accounts=inc,
+                red_blue_cancellations=cancels,
+                error_message=None,
+                zero_span=None,
+                change_dates=None,
+            )
+        )
 
     # --- Case 2: validate_voucher_and_ledger 返回 error（如 Day-1 跳过）---
     elif validation_msg and not validation_msg.additional_kwargs.get("structured_result", {}).get("history"):
@@ -633,30 +657,33 @@ def update_results_node(state: ReconciliationState) -> dict:
             ccy = args.get("ccy_symb", "")
             dt = args.get("acg_dt", "")
 
-            new_audit_entries.append(AuditEntry(
-                org_num=org,
-                sbj_num=sbj,
-                ccy=ccy,
-                dt=dt,
-                discrepancy_type="type1",
-                processed_at=datetime.now().isoformat(),
-                history_total_diff=0.0,
-                individual_total_diff=0.0,
-                diff_gap=0.0,
-                inconsistent_account_count=0,
-                inconsistent_accounts=[],
-                red_blue_cancellations=[],
-                error_message=val_res["error"],
-                zero_span=None,
-                change_dates=None,
-            ))
+            new_audit_entries.append(
+                AuditEntry(
+                    org_num=org,
+                    sbj_num=sbj,
+                    ccy=ccy,
+                    dt=dt,
+                    discrepancy_type="type1",
+                    processed_at=datetime.now().isoformat(),
+                    history_total_diff=0.0,
+                    individual_total_diff=0.0,
+                    diff_gap=0.0,
+                    inconsistent_account_count=0,
+                    inconsistent_accounts=[],
+                    red_blue_cancellations=[],
+                    error_message=val_res["error"],
+                    zero_span=None,
+                    change_dates=None,
+                )
+            )
     # ✅ 返回结果
     return {
         "results": new_results,
         "audit_log": new_audit_entries,
     }
 
-def should_continue(state: ReconciliationState) -> Literal["tool_node", "update_results", "finish","agent_node"]:
+
+def should_continue(state: ReconciliationState) -> Literal["tool_node", "update_results", "finish", "agent_node"]:
     """Route based on LLM action and progress."""
     last_msg = state["messages"][-1] if state.get("messages") else None
     iterations = state.get("tool_call_iterations", 0)
@@ -670,9 +697,8 @@ def should_continue(state: ReconciliationState) -> Literal["tool_node", "update_
         return "tool_node"
 
     # If last action was comparison or think, update results
-    if (
-        (last_msg and last_msg.name in ["validate_voucher_and_ledger"])
-        or (hasattr(last_msg, "content") and "ready to summarize" in str(last_msg.content).lower())
+    if (last_msg and last_msg.name in ["validate_voucher_and_ledger"]) or (
+        hasattr(last_msg, "content") and "ready to summarize" in str(last_msg.content).lower()
     ):
         return "update_results"
 
@@ -684,10 +710,7 @@ def should_continue(state: ReconciliationState) -> Literal["tool_node", "update_
 def finish_node(state: ReconciliationState) -> ReconciliationOutput:
     """Produce final structured output."""
     results = state.get("results", [])
-    scan_msg = next(
-        (m for m in reversed(state["messages"]) if m.name == "scan_and_classify_discrepancies"),
-        None
-    )
+    scan_msg = next((m for m in reversed(state["messages"]) if m.name == "scan_and_classify_discrepancies"), None)
     classes = scan_msg.additional_kwargs.get("structured_result", {}) if scan_msg else {}
 
     summary = {
@@ -723,18 +746,18 @@ builder.add_conditional_edges(
         "tool_node": "tool_node",
         "update_results": "update_results",
         "finish": "finish",
-    }
+    },
 )
 
 builder.add_edge("tool_node", "agent_node")
 builder.add_edge("update_results", "agent_node")
 builder.add_edge("finish", END)
 
-reconciliation_agent = builder.compile(
-)
+reconciliation_agent = builder.compile()
 
 
 # ====== Public API ======
+
 
 def run_reconciliation(topic: str = "Bank Reconciliation Analysis") -> ReconciliationOutput:
     """Run the reconciliation agent to completion."""
@@ -745,20 +768,19 @@ def run_reconciliation(topic: str = "Bank Reconciliation Analysis") -> Reconcili
         "results": [],
     }
 
-    config = RunnableConfig(
-        recursion_limit=100,
-        configurable={"thread_id": f"recon_{int(datetime.now().timestamp())}"}
-    )
+    config = RunnableConfig(recursion_limit=100, configurable={"thread_id": f"recon_{int(datetime.now().timestamp())}"})
 
     return reconciliation_agent.invoke(initial_state, config=config)
 
 
 if __name__ == "__main__":
     import json
+
     try:
         output = run_reconciliation()
         print(json.dumps(output, ensure_ascii=False, indent=2, default=str))
     except Exception as e:
         print(f"❌ Error: {e}")
         import traceback
+
         traceback.print_exc()

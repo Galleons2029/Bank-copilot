@@ -70,6 +70,7 @@ def hybrid_embedding(texts: list[str]) -> dict:
     # return {'dense': output['dense_vecs'][0], 'sparse': models.SparseVector(indices=idx, values=vals)}
     pass
 
+
 if __name__ == "__main__":
     ans = embedd_text("dawdw")
     print(ans)

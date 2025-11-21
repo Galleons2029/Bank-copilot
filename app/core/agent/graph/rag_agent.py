@@ -22,8 +22,6 @@ from langgraph.prebuilt import tools_condition, ToolNode
 from app.core.rag.retriever import VectorRetriever
 from app.configs import llm_config
 from pydantic import BaseModel, Field
-from qdrant_client import QdrantClient
-from langchain_openai import OpenAIEmbeddings
 from langfuse import Langfuse
 from langfuse.langchain import CallbackHandler
 

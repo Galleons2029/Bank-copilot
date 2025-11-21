@@ -35,7 +35,7 @@ langfuse = Langfuse(
 
 langfuse_handler = CallbackHandler()
 
-QDRANT_COLLECTION = "zsk_test111"
+QDRANT_COLLECTIONS = "zsk_111"
 
 
 # @tool("search_tool")
@@ -53,7 +53,7 @@ def retrieve_content(query: str):
     retriever = VectorRetriever(query)
     retrieved_docs = retriever.retrieve_top_k(
         k=4,
-        collections=["zsk_test1"],
+        collections=[QDRANT_COLLECTIONS],
     )
     context = retriever.rerank(hits=retrieved_docs, keep_top_k=3)
 

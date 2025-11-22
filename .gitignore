@@ -2,6 +2,7 @@
 .rabbitmq/
 .env
 data/
+.venv/
 
 # Langgraph checkpoint
 .langgraph_api/
@@ -15,9 +16,14 @@ __pycache__/
 # Notebook files
 *.ipynb
 
+# test output files
+*.pyc
+**/*.pyc
+
 # VSCode settings
 .vscode/
 
 # Ignore log files
 *.log
 app/pipeline/feature_pipeline/utils/logs
+app/core/agent/graph/logs

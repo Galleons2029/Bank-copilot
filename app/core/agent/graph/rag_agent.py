@@ -22,8 +22,8 @@ from langgraph.prebuilt import tools_condition, ToolNode
 from app.core.rag.retriever import VectorRetriever
 from app.configs import llm_config
 from pydantic import BaseModel, Field
-from qdrant_client import QdrantClient
-from langchain_openai import OpenAIEmbeddings
+from app.core.agent.call_llm import client as model
+
 from langfuse import Langfuse
 from langfuse.langchain import CallbackHandler
 
@@ -36,14 +36,6 @@ langfuse = Langfuse(
 langfuse_handler = CallbackHandler()
 
 QDRANT_COLLECTION = "zsk_test1"
-
-
-client = QdrantClient(
-    host="localhost",
-    port=6333,
-)
-embedding_model = OpenAIEmbeddings(api_key=llm_config.SILICON_KEY, base_url=llm_config.SILICON_BASE_URL, model="BAAI/bge-m3")
-
 
 # @tool("search_tool")
 # def search_tool(query: str):
@@ -60,7 +52,7 @@ def retrieve_content(query: str):
     retriever = VectorRetriever(query)
     retrieved_docs = retriever.retrieve_top_k(
         k=4,
-        collections=["zsk_test1"],
+        collections=[QDRANT_COLLECTION],
     )
     context = retriever.rerank(hits=retrieved_docs, keep_top_k=3)
 
@@ -100,11 +92,6 @@ def grade_documents(state) -> Literal["generate", "rewrite"]:
 
         binary_score: str | int = Field(description="Relevance score 'yes' or 'no'")
 
-    # LLM
-    # model = ChatOpenAI(temperature=0, model="gpt-4o", streaming=True)
-    model = ChatOpenAI(
-        model=llm_config.FREE_LLM_MODEL, api_key=llm_config.SILICON_KEY, base_url="https://api.siliconflow.cn/v1", temperature=0, streaming=True
-    )
 
     # LLM with tool and validation
     # llm_with_tool = model.with_structured_output(grade)
@@ -195,9 +182,6 @@ def rewrite(state):
 
     # Grader
     # model = ChatOpenAI(temperature=0, model="gpt-4o", streaming=True)
-    model = ChatOpenAI(
-        model="deepseek-ai/DeepSeek-V3", api_key=llm_config.SILICON_KEY, base_url="https://api.siliconflow.cn/v1", temperature=0, streaming=True
-    )
     response = model.invoke(msg)
     return {"messages": [response]}
 
@@ -229,18 +213,12 @@ def generate(state):
         input_variables=["context", "question"],
     )
 
-    # LLM
-    # llm = ChatOpenAI(model_name="gpt-4o", temperature=0, streaming=True)
-    llm = ChatOpenAI(
-        model="deepseek-ai/DeepSeek-V3", api_key=llm_config.SILICON_KEY, base_url="https://api.siliconflow.cn/v1", temperature=0, streaming=True
-    )
-
     # Post-processing
     def format_docs(docs):
         return "\n\n".join(doc.page_content for doc in docs)
 
     # Chain
-    rag_chain = prompt | llm | StrOutputParser()
+    rag_chain = prompt | model | StrOutputParser()
 
     # Run
     print("context: ", docs)

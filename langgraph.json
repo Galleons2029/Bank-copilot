@@ -4,7 +4,7 @@
       "agent": "./app/core/agent/graph/instructor_agent.py:agent",
       "rag_agent": "./app/core/agent/graph/rag_agent.py:rag_agent"
     },
-    "python_version": "3.11",
+    "python_version": "3.12",
     "env": ".env",
     "dependencies": [
       "."

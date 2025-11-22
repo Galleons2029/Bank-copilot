@@ -69,6 +69,7 @@ class AgentState(TypedDict):
     # The add_messages function defines how an update should be processed
     # Default is to replace. add_messages says "append"
     messages: Annotated[Sequence[BaseMessage], add_messages]
+    user_id: str
 
 
 ### Edges
@@ -147,7 +148,8 @@ def agent(state):
     Returns:
         dict: The updated state with the agent response appended to messages
     """
-    print("---CALL AGENT---")
+    name = state['user_id']
+    print(f"记住我叫 {name}---CALL AGENT---")
     messages = state["messages"]
     # model = ChatOpenAI(temperature=0, streaming=True, model="gpt-4o")
     model = ChatOpenAI(model="deepseek-ai/DeepSeek-V3", api_key=llm_config.SILICON_KEY, base_url="https://api.siliconflow.cn/v1", temperature=0)

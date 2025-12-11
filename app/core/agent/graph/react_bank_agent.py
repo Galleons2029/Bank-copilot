@@ -1,30 +1,43 @@
 from collections import defaultdict
 from typing import Dict, Any, List, Tuple, TypedDict, Optional
 import pandas as pd
-from langgraph.graph import StateGraph
+from langgraph.graph import StateGraph, END
 from sqlalchemy.engine.create import create_engine
 from sqlalchemy.pool.impl import QueuePool
 from datetime import datetime, timedelta
-from app.core.agent.graph.sql_graph import db_uri
+from app.core.agent.graph.sql_agent import db_uri
 import logging
+from dotenv import load_dotenv
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import SystemMessage, HumanMessage
+import os
 
+load_dotenv()
+api_key = os.getenv("SILICON_API_KEY")
+base_url = os.getenv("SILICON_BASE_URL")
+
+model = ChatOpenAI(
+    model="deepseek-ai/DeepSeek-V3",
+    temperature=0.2,
+    api_key=api_key,
+    base_url=base_url,
+)
 # 配置日志
 logging.basicConfig(level=logging.DEBUG)
 
 engine = create_engine(
     db_uri,
-    poolclass=QueuePool,  # 使用队列池（默认）
-    pool_size=10,  # 连接池大小
-    max_overflow=20,  # 最大溢出连接
-    pool_timeout=30,  # 获取连接超时时间
-    pool_pre_ping=True,  # 预先检查连接有效性
-    pool_recycle=3600,  # 连接回收时间（避免数据库断开）
-    echo=False,  # 设为True可查看SQL日志（调试用）
+    poolclass=QueuePool,          # 使用队列池（默认）
+    pool_size=10,                 # 连接池大小
+    max_overflow=20,              # 最大溢出连接
+    pool_timeout=30,              # 获取连接超时时间
+    pool_pre_ping=True,           # 预先检查连接有效性
+    pool_recycle=3600,            # 连接回收时间（避免数据库断开）
+    echo=False                    # 设为True可查看SQL日志（调试用）
 )
 DATE_FMT = "%Y%m%d"
 START_DT = "20250601"
-END_DT = "20250610"
-
+END_DT   = "20250610"
 
 class PandasSQLQueryTool:
     def __init__(self, engine):
@@ -38,12 +51,104 @@ class PandasSQLQueryTool:
         try:
             with self.engine.connect() as conn:
                 result = pd.read_sql(query, conn, params=params)  # 直接执行SQL，无参数
-                return result.to_dict("records")
+                return result.to_dict('records')
         except Exception as e:
             logging.error(f"查询执行失败: {e}")
             logging.error(f"SQL: {query}")
             return []
 
+import requests
+import json
+
+def summarize_result_for_mermaid(result: Dict[str, Any]) -> str:
+    """
+    把 result 里关键信息提炼成一个给 LLM 的说明文本
+    尽量结构化，模型更容易画出合理的 mermaid
+    """
+    org = result.get("org_num", "")
+    sbj = result.get("sbj_num", "")
+    ccy = result.get("ccy", "")
+    dt = result.get("acg_dt", "")
+    t = result.get("type", "unknown")
+
+    history_diff = result.get("history_total_diff", 0)
+    individual_diff = result.get("individual_total_diff", 0)
+    acc_inconsistent_cnt = result.get("account_inconsistent_count", 0)
+
+    # 对 type2/type3 额外信息也带上
+    change_dates = result.get("change_dates", [])
+    change_list = result.get("change_list", [])
+    zero_span = result.get("zero_span", {})
+    red_blue = result.get("red_blue_cancellations", {})
+
+    text = {
+        "account_key": {
+            "org_num": org,
+            "sbj_num": sbj,
+            "ccy": ccy,
+            "acg_dt": dt,
+        },
+        "type": t,
+        "history_total_diff": history_diff,
+        "individual_total_diff": individual_diff,
+        "account_inconsistent_count": acc_inconsistent_cnt,
+        "inconsistent_accounts_example": result.get("inconsistent_accounts", [])[:5],
+        "change_dates": change_dates,
+        "change_list": change_list,
+        "zero_span": zero_span,
+        "red_blue_cancellations_summary": red_blue.get("summary", {}),
+        "red_blue_suspicious_count": red_blue.get("suspicious_candidates", 0),
+    }
+
+    # 用 JSON 字符串传递，结构清楚
+    return json.dumps(text, ensure_ascii=False, indent=2)
+
+
+def call_llm_api_for_mermaid(analysis_json: str) -> str:
+    """
+    根据账户总分不平的分析 JSON，调用 LLM 生成 mermaid 流程图代码。
+    使用的是已经配置好的 ChatOpenAI 模型（deepseek-ai/DeepSeek-V3）。
+    """
+
+    system_prompt = """
+    你是一个会画流程图的财务分析专家。
+        用户会给你一个 JSON，里面包含某个账户总分不平的分析结果。
+        
+        你的任务：
+        - 根据 JSON 信息，用清晰中文步骤生成一个 mermaid 流程图（graph TD）。
+        - 风格必须严格模仿下方示例：
+        
+        示例（必须模仿其格式、缩进与写法）：
+        ```mermaid
+        graph TD
+          A[总账余额≠分户账合计] --> B{差异类型判断}
+          B -->|时间性| C[检查T+1跑批状态]
+          B -->|永久性| D[逐笔核对分户账]
+          C --> E[重跑当日批处理]
+          D --> F[定位错账/折算错误]
+          E --> G[差异消除]
+          F --> G
+
+    """
+
+
+    user_prompt = (
+        "下面是一个账户总分不平分析结果，请你根据其中的信息画一张 mermaid 流程图：\n\n"
+        f"{analysis_json}\n\n"
+        "请直接给出 mermaid 代码块。"
+    )
+
+    # 用 silicon 的 ChatOpenAI 客户端调用
+    response = model.invoke(
+        [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_prompt),
+        ]
+    )
+
+    # ChatOpenAI 返回的是一个 BaseMessage，内容在 .content
+    content = response.content if hasattr(response, "content") else str(response)
+    return content.strip()
 
 def load_ccy_mapping():
     """加载币种映射表到内存"""
@@ -51,11 +156,10 @@ def load_ccy_mapping():
     sql = "SELECT ccy_int, ccy_symb FROM ccy_mapping"
     results = execute_query_tool.invoke(sql)
     _CCY_MAPPING = {
-        row["ccy_symb"]: row["ccy_int"]  # symb -> int
+        row['ccy_symb']: row['ccy_int']  # symb -> int
         for row in results
     }
     return _CCY_MAPPING
-
 
 def parse_dt(dt: str) -> datetime:
     try:
@@ -64,10 +168,8 @@ def parse_dt(dt: str) -> datetime:
         logging.error(f"Error: 日期格式错误，无法将 '{dt}' 转换为日期。")
         raise e  # 继续抛出异常
 
-
 # 使用方式相同
 execute_query_tool = PandasSQLQueryTool(engine)
-
 
 def classify_errors(records: List[Dict[str, Any]]) -> Dict[str, List[Any]]:
     from datetime import timedelta
@@ -80,30 +182,35 @@ def classify_errors(records: List[Dict[str, Any]]) -> Dict[str, List[Any]]:
 
     bucket = defaultdict(list)
     for r in records:
-        key = (r["org_num"], r["sbj_num"], r["ccy"])
+        key = (r['org_num'], r['sbj_num'], r['ccy'])
         bucket[key].append(r)
 
     type1, type2, type3 = [], [], []
 
     for key, rows in bucket.items():
         # ---------- 预处理 ----------
-        rows.sort(key=lambda x: x["dt"])
-        exist_dates = {r["dt"] for r in rows}
-        full_period = exist_dates == date_set  # 是否 10 天全量
-        diffs = [float(r["tot_mint_dif"]) for r in rows]
+        rows.sort(key=lambda x: x['dt'])
+        exist_dates = {r['dt'] for r in rows}
+        full_period = (exist_dates == date_set)  # 是否 10 天全量
+        diffs = [float(r['tot_mint_dif']) for r in rows]
         non_zero_count = sum(1 for d in diffs if d != 0)  # 不平记录条数
 
         # ---------- Type1：十天全在 + 差额恒定 ----------
         if full_period and len(set(diffs)) == 1:
-            rows[0]["is_first"] = True
+            rows[0]['is_first'] = True
             type1.append(rows[1])
             continue
 
         # ---------- Type3：且非全量 ----------
-        if not full_period and non_zero_count < 10 and non_zero_count > 0:
+        if (
+                not full_period
+                and non_zero_count < 10
+                and non_zero_count > 0
+        ):
             first_nz = next(i for i, d in enumerate(diffs) if d != 0)
             last_nz = len(diffs) - 1 - next(i for i, d in enumerate(reversed(diffs)) if d != 0)
-            rows[0]["zero_span"] = {"start": rows[first_nz]["dt"], "end": rows[last_nz]["dt"]}
+            rows[0]['zero_span'] = {'start': rows[first_nz]['dt'],
+                                    'end': rows[last_nz]['dt']}
             type3.append(rows[0])
             continue
 
@@ -112,14 +219,13 @@ def classify_errors(records: List[Dict[str, Any]]) -> Dict[str, List[Any]]:
         for i, d in enumerate(diffs):
             if i == 0 or d != diffs[i - 1]:
                 change_list.append(d)
-                change_dates.append(rows[i]["dt"])
+                change_dates.append(rows[i]['dt'])
         if len(change_list) >= 2:
-            rows[0]["change_list"] = change_list
-            rows[0]["change_dates"] = change_dates
+            rows[0]['change_list'] = change_list
+            rows[0]['change_dates'] = change_dates
             type2.append(rows[0])
 
-    return {"type1": type1, "type2": type2, "type3": type3}
-
+    return {'type1': type1, 'type2': type2, 'type3': type3}
 
 class OutputState(TypedDict):
     discrepancies: List[Dict[str, Any]]
@@ -127,33 +233,31 @@ class OutputState(TypedDict):
     results: List[Dict[str, Any]]
     summary: Dict[str, Any]  # 建议保留 summary，对主智能体有用
 
-
 # -------- State --------
 class AgentState(TypedDict, total=False):
-    discrepancies: List[Dict[str, Any]]  # 原始不平明细
-    classes: Dict[str, List[Dict[str, Any]]]  # type1/type2/type3
-    current_type_index: Dict[str, int]  # {"type1": 0, "type2": 0, "type3": 0}
-    current_date_index: int  # 对于 type2，当前处理到 change_dates 的第几个日期
-    current_record: Dict[str, Any]  # 当前处理的分类记录
-    current_target: Tuple[str, str, str, str]  # 当前处理组 (org, sbj, ccy, dt)
-    current_type: str  # 当前处理的类型
+    discrepancies: List[Dict[str, Any]]          # 原始不平明细
+    classes: Dict[str, List[Dict[str, Any]]]     # type1/type2/type3
+    current_type_index: Dict[str, int]           # {"type1": 0, "type2": 0, "type3": 0}
+    current_date_index: int                      # 对于 type2，当前处理到 change_dates 的第几个日期
+    current_record: Dict[str, Any]                # 当前处理的分类记录
+    current_target: Tuple[str, str, str, str]    # 当前处理组 (org, sbj, ccy, dt)
+    current_type: str                            # 当前处理的类型
     has_more: bool
     history: Dict[str, Any]
     individual: Dict[str, Any]
     per_account: List[Dict[str, Any]]
-    results: List[Dict[str, Any]]  # 累计各组结果
+    results: List[Dict[str, Any]]                # 累计各组结果
     summary: Dict[str, Any]
-    red_blue_cancellations: List[Dict[str, Any]]  # 新增：用于存储冲销凭证检查结果
-
+    red_blue_cancellations: List[Dict[str, Any]] # 新增：用于存储冲销凭证检查结果
 
 # -------- Helpers (参数化版本 SQL，避免硬编码) --------
 def _print_classification_analysis(classes: Dict[str, List[Dict[str, Any]]], discrepancies: List[Dict[str, Any]]):
     """
     打印三类错误的分类结果和分析原因
     """
-    logging.info("\n" + "=" * 80)
+    logging.info("\n" + "="*80)
     logging.info("【错误分类分析报告】")
-    logging.info("=" * 80)
+    logging.info("="*80)
 
     total_records = len(discrepancies)
     type1_records = classes.get("type1", [])
@@ -175,26 +279,23 @@ def _print_classification_analysis(classes: Dict[str, List[Dict[str, Any]]], dis
         logging.info("  3. 说明：可能存在系统性的余额计算错误或初始余额设置问题")
         logging.info(f"\n共 {len(type1_records)} 组，详情：")
         for idx, record in enumerate(type1_records, 1):
-            logging.info(
-                f"  [{idx}] 机构: {record.get('org_num')}, 科目: {record.get('sbj_num')}, "
-                f"币种: {record.get('ccy')}, 差额: {record.get('tot_mint_dif')}"
-            )
+            logging.info(f"  [{idx}] 机构: {record.get('org_num')}, 科目: {record.get('sbj_num')}, "
+                        f"币种: {record.get('ccy')}, 差额: {record.get('tot_mint_dif')}")
 
     # 分析 Type2
     if type2_records:
         logging.info("\n【Type2 - 差额变化错误】")
-        logging.info(
-            "分析原因：6月1日起总账户与分户合计产生差额不固定，业务期间分户/总账不同步变动。该总分不平发生在6月1日之前，同时中间又发生了新的错误，建议您对该账户的相关情况进行具体分析。"
-        )
+        logging.info("分析原因：6月1日起总账户与分户合计产生差额不固定，业务期间分户/总账不同步变动。该总分不平发生在6月1日之前，同时中间又发生了新的错误，建议您对该账户的相关情况进行具体分析。")
         logging.info("判断标准：")
         logging.info("  1. 在查询期间内，该组的 tot_mint_dif 值发生了至少一次变化")
         logging.info("  2. 存在多个不同的差额值（change_list 长度 ≥ 2）")
         logging.info("  3. 说明：可能在特定日期发生了交易或调整，导致差额发生变化")
         logging.info(f"\n共 {len(type2_records)} 组，详情：")
         for idx, record in enumerate(type2_records, 1):
-            change_list = record.get("change_list", [])
-            change_dates = record.get("change_dates", [])
-            logging.info(f"  [{idx}] 机构: {record.get('org_num')}, 科目: {record.get('sbj_num')}, 币种: {record.get('ccy')}")
+            change_list = record.get('change_list', [])
+            change_dates = record.get('change_dates', [])
+            logging.info(f"  [{idx}] 机构: {record.get('org_num')}, 科目: {record.get('sbj_num')}, "
+                        f"币种: {record.get('ccy')}")
             logging.info(f"      变化点: {len(change_list)} 个，差额值: {change_list}")
             logging.info(f"      变化日期: {change_dates}")
 
@@ -209,14 +310,14 @@ def _print_classification_analysis(classes: Dict[str, List[Dict[str, Any]]], dis
         logging.info("  4. 说明：可能在某段时间内发生了错误，之后被纠正或自动归零")
         logging.info(f"\n共 {len(type3_records)} 组，详情：")
         for idx, record in enumerate(type3_records, 1):
-            zero_span = record.get("zero_span", {})
-            logging.info(f"  [{idx}] 机构: {record.get('org_num')}, 科目: {record.get('sbj_num')}, 币种: {record.get('ccy')}")
+            zero_span = record.get('zero_span', {})
+            logging.info(f"  [{idx}] 机构: {record.get('org_num')}, 科目: {record.get('sbj_num')}, "
+                        f"币种: {record.get('ccy')}")
             if zero_span:
                 logging.info(f"      异常日期范围: {zero_span.get('start')} 至 {zero_span.get('end')}")
 
-    logging.info("\n" + "=" * 80)
+    logging.info("\n" + "="*80)
     logging.info("开始逐组验证...")
-
 
 def _print_account_result(state: AgentState):
     """
@@ -228,7 +329,12 @@ def _print_account_result(state: AgentState):
     history = state.get("history", {})
     individual = state.get("individual", {})
     per_account = state.get("per_account", [])
-
+    results_list = state.get("results", [])
+    if results_list:
+        last_result = results_list[-1]
+        mermaid = last_result.get("mermaid", "")
+    else:
+        mermaid = ""
     logging.info("\n" + "-" * 80)
     logging.info(f"【处理完成 - {current_type.upper()}】")
     logging.info("-" * 80)
@@ -253,8 +359,8 @@ def _print_account_result(state: AgentState):
         logging.info("    1. 在特定日期发生了交易或调整")
         logging.info("    2. 传票数据与分户余额数据在变化点日期不一致")
         logging.info("    3. 可能存在数据录入错误或冲正操作")
-        change_list = record.get("change_list", [])
-        change_dates = record.get("change_dates", [])
+        change_list = record.get('change_list', [])
+        change_dates = record.get('change_dates', [])
         if change_list:
             logging.info(f"  差额变化序列: {change_list}")
             logging.info(f"  变化日期: {change_dates}")
@@ -267,16 +373,16 @@ def _print_account_result(state: AgentState):
         logging.info("    1. 在某段时间内发生了错误，之后被纠正")
         logging.info("    2. 可能存在红蓝字冲销操作")
         logging.info("    3. 数据在异常期间后自动归零")
-        zero_span = record.get("zero_span", {})
+        zero_span = record.get('zero_span', {})
         if zero_span:
             logging.info(f"  异常日期范围: {zero_span.get('start')} 至 {zero_span.get('end')}")
             red_blue_result = state.get("red_blue_cancellations", {})
             if current_type == "type3" and red_blue_result:
                 summary = red_blue_result.get("summary", {})
-                # vouchers = red_blue_result.get("raw_vouchers", [])
-                # tot_records = red_blue_result.get("tot_records", [])
+                vouchers = red_blue_result.get("raw_vouchers", [])
+                tot_records = red_blue_result.get("tot_records", [])
                 match_result = red_blue_result.get("matches", [])
-                logging.info("\n【冲销凭证分析】")
+                logging.info(f"\n【冲销凭证分析】")
                 logging.info(f"  {summary.get('note', '')}")
                 logging.info(f"  → {summary.get('conclusion', '')}")
                 logging.info("\n【冲销嫌疑匹配详情】")
@@ -288,32 +394,30 @@ def _print_account_result(state: AgentState):
                         t = item["tot_record"]
                         diff = item["abs_diff"]
                         rd_flag = "🔴 R" if v.get("rd_flg") == "R" else "🔵 B"
-                        logging.info(
-                            f"{i:2d}. {rd_flag} 凭证 {v['vchr_num']} | 日期 {v['dt']} | 金额 {v['amt']:+.2f} ≈ 差异 {t['dif']:+.2f} (差值 {diff:.4f})"
-                        )
-
-    logging.info("\n【验证结果汇总】")
-    logging.info("  History表(传票发生额):")
+                        logging.info(f"{i:2d}. {rd_flag} 凭证 {v['vchr_num']} | 日期 {v['dt']} | 金额 {v['amt']:+.2f} "
+                                    f"≈ 差异 {t['dif']:+.2f} (差值 {diff:.4f})")
+    logging.info(f"\n【mermaid】")
+    logging.info(mermaid)
+    logging.info(f"\n【验证结果汇总】")
+    logging.info(f"  History表(传票发生额):")
     logging.info(f"    - 账户数: {history.get('count', 0)}")
     logging.info(f"    - 总借方: {history.get('total_debit', 0):.2f}")
     logging.info(f"    - 总贷方: {history.get('total_credit', 0):.2f}")
     logging.info(f"    - 总差额: {history.get('total_diff', 0):.2f}")
-    # logging.info(f"   - 可疑的账号: {per_account:.2f}")
-    logging.info("  Individual表(分户余额差):")
+    #logging.info(f"   - 可疑的账号: {per_account:.2f}")
+    logging.info(f"  Individual表(分户余额差):")
     logging.info(f"    - 账户数: {individual.get('count', 0)}")
     logging.info(f"    - 总差额: {individual.get('total_diff', 0):.2f}")
     # 添加前30个不一致的账号信息
     inconsistent_accounts = [r for r in per_account if not r["is_consistent"]]
-    logging.info("  传票历史跟分户差额不一致的账号 (前30个):")
-    if per_account == []:
+    logging.info(f"  传票历史跟分户差额不一致的账号 (前30个):")
+    if per_account==[]:
         logging.info(f"→ 传票历史表跟分户余额表其中一个表存在对应的{org}, {sbj}, {ccy}, {acg_dt}丢失，请检查。")
     for i, account in enumerate(inconsistent_accounts[:30], start=1):
         logging.info(
-            f" [{i}] 账号: {account['acct_num']}, 差异: {account['difference']:.4f}, 错误率: {account['error_rate']:.6f}%,借贷发生额: {account['history_balance_diff']},分户差额: {account['individual_balance_diff']}"  # noqa: E501
-        )
+            f"    [{i}] 账号: {account['acct_num']}, 差异: {account['difference']:.4f}, 错误率: {account['error_rate']:.6f}%,借贷发生额: {account['history_balance_diff']},分户差额: {account['individual_balance_diff']}")
 
     logging.info("-" * 80 + "\n")
-
 
 def _validate_voucher_today(acg_dt: str, org_num: str, sbj_num: str, ccy_symb: str) -> Dict[str, Any]:
     sql = f"""
@@ -349,13 +453,12 @@ def _validate_voucher_today(acg_dt: str, org_num: str, sbj_num: str, ccy_symb: s
     rows = execute_query_tool.invoke(sql)
     return {
         "count": len(rows),
-        "total_debit": sum(r["debit_amt"] for r in rows),
-        "total_credit": sum(r["credit_amt"] for r in rows),
-        "total_diff": sum(r["balance_diff"] for r in rows),
+        "total_debit": sum(r['debit_amt'] for r in rows),
+        "total_credit": sum(r['credit_amt'] for r in rows),
+        "total_diff": sum(r['balance_diff'] for r in rows),
         "records": rows,
-        "summary_diff": sum(r["debit_amt"] for r in rows) - sum(r["credit_amt"] for r in rows),
+        "summary_diff": sum(r['debit_amt'] for r in rows) - sum(r['credit_amt'] for r in rows),
     }
-
 
 def _validate_ledger_day(acg_dt: str, org_num: str, sbj_num: str, ccy_int: str) -> Dict[str, Any]:
     # 需要 acg_dt+1
@@ -391,31 +494,30 @@ def _validate_ledger_day(acg_dt: str, org_num: str, sbj_num: str, ccy_int: str) 
     return {
         "count": len(rows),
         "records": rows,
-        "total_diff": sum(r["balance_diff"] for r in rows),
+        "total_diff": sum(r['balance_diff'] for r in rows),
     }
 
-
 def _compare_account_diffs(history_rows: List[Dict[str, Any]], individual_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    history = {r["acct_num"]: float(r["balance_diff"]) for r in history_rows}
-    individual = {r["acct_num"]: float(r["balance_diff"]) for r in individual_rows}
+    history = {r['acct_num']: float(r['balance_diff']) for r in history_rows}
+    individual = {r['acct_num']: float(r['balance_diff']) for r in individual_rows}
     common = sorted(set(history) & set(individual))
     out = []
     for acct in common:
         h = abs(history[acct])
         i = abs(individual[acct])
         diff = h - i
-        out.append(
-            {
-                "acct_num": acct,
-                "history_balance_diff": h,
-                "individual_balance_diff": i,
-                "difference": diff,
-                "is_consistent": abs(diff) < 0.01,
-                "error_rate": abs(diff / h * 100) if h != 0 else 0,
-            }
-        )
+        out.append({
+            "acct_num": acct,
+            "history_balance_diff": h,
+            "individual_balance_diff": i,
+            "difference": diff,
+            "is_consistent": abs(diff) < 0.01,
+            "error_rate": abs(diff / h * 100) if h != 0 else 0,
+        })
     return out
 
+from datetime import datetime
+from typing import List, Dict, Any
 
 def _check_red_blue_cancellation_in_type3(
     org_num: str,
@@ -475,20 +577,24 @@ def _check_red_blue_cancellation_in_type3(
         for t in tot_records:
             t_dif = float(t["dif"])
             if abs(v_amt - t_dif) < TOLERANCE:
-                matches.append({"voucher": v, "tot_record": t, "abs_diff": abs(v_amt - t_dif)})
+                matches.append({
+                    "voucher": v,
+                    "tot_record": t,
+                    "abs_diff": abs(v_amt - t_dif)
+                })
 
     # === Step 4: 构建返回结果 ===
     summary = {
         "note": f"【冲销嫌疑匹配分析】期间 {start_dt}–{end_dt}："
-        f"共 {len(raw_vouchers)} 笔凭证，{len(tot_records)} 条差异记录；"
-        f"发现 {len(matches)} 组凭证金额与当日总差异高度吻合（误差 < {TOLERANCE}）。",
+                f"共 {len(raw_vouchers)} 笔凭证，{len(tot_records)} 条差异记录；"
+                f"发现 {len(matches)} 组凭证金额与当日总差异高度吻合（误差 < {TOLERANCE}）。",
         "match_count": len(matches),
         "tolerance_used": TOLERANCE,
         "interpretation": (
             "⚠️ 注意：此类精确匹配常见于红字冲销（R）或蓝字反向凭证操作，"
             "可能导致单日凭证金额直接体现为 tot_mint_dif。"
             "建议人工核查匹配项中的 rd_flg='R' 或异常借贷方向凭证。"
-        ),
+        )
     }
 
     return {
@@ -502,7 +608,7 @@ def _check_red_blue_cancellation_in_type3(
 
 # -------- Nodes --------
 def node_scan(state: AgentState) -> AgentState:
-    sql = """
+    sql = f"""
         SELECT 
                 org_num, 
                 sbj_num, 
@@ -647,8 +753,6 @@ def node_decide(state: AgentState) -> str:
     if not state.get("has_more", False):
         return "finish"
     return "next"
-
-
 def node_validate(state: AgentState) -> AgentState:
     org, sbj, ccy_symb, acg_dt = state["current_target"]
 
@@ -695,16 +799,33 @@ def node_compare(state: AgentState) -> AgentState:
         if zero_span:
             start_dt = zero_span.get("start", acg_dt)
             end_dt = zero_span.get("end", acg_dt)
-            red_blue_cancellations = _check_red_blue_cancellation_in_type3(org, sbj, ccy, start_dt, end_dt)
+            red_blue_cancellations = _check_red_blue_cancellation_in_type3(
+                org, sbj, ccy, start_dt, end_dt
+            )
             state["red_blue_cancellations"] = red_blue_cancellations
             result["red_blue_cancellations"] = red_blue_cancellations
-
+    # 2. 用 result 构造给 LLM 的分析文本
+    try:
+        analysis_json = summarize_result_for_mermaid(result)
+        # 3. 调用 LLM API 生成 mermaid
+        mermaid_code = call_llm_api_for_mermaid(analysis_json)
+        result["mermaid"] = mermaid_code
+    except Exception as e:
+        logging.error(f"生成 mermaid 失败: {e}")
+        # 兜底：至少给个简单提示，避免前端报错
+        result["mermaid"] = """
+        ```mermaid
+        graph TD
+          A[总账余额≠分户账合计] --> B[生成流程图失败，请人工查看日志]
+        """
     state["results"].append(result)
-
+    
     # 打印每个账户处理完成后的结果
     _print_account_result(state)
-
+    
     return state
+
+
 
 
 def node_finish(state: AgentState) -> AgentState:
@@ -717,7 +838,6 @@ def node_finish(state: AgentState) -> AgentState:
         "type3": len(state.get("classes", {}).get("type3", [])),
     }
     return state
-
 
 # -------- Graph builder --------
 def build_graph():
@@ -732,23 +852,17 @@ def build_graph():
     g.add_edge("scan", "pick_next")
     g.add_edge("pick_next", "validate")
     g.add_edge("validate", "compare")
-    g.add_conditional_edges(
-        "compare",
-        node_decide,
-        {
-            "finish": "finish",
-            "next": "pick_next",
-        },
-    )
+    g.add_conditional_edges("compare", node_decide, {
+        "finish": "finish",
+        "next": "pick_next",
+    })
 
     return g.compile()
-
 
 # -------- Public API --------
 def run_react() -> Dict[str, Any]:
     app = build_graph()
     final = app.invoke({}, config={"recursion_limit": 100})
-    # ✅ 投影：仅保留主智能体需要的字段
     output: OutputState = {
         "discrepancies": final.get("discrepancies", []),
         "classes": final.get("classes", {}),
@@ -756,16 +870,12 @@ def run_react() -> Dict[str, Any]:
         "summary": final.get("summary", {}),
     }
     return output
-
-
 if __name__ == "__main__":
     import json
-
     try:
         result = run_react()
         print(json.dumps(result, ensure_ascii=False, indent=2))
     except Exception as e:
         print(f"执行出错: {e}")
         import traceback
-
         traceback.print_exc()

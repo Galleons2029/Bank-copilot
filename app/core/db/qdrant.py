@@ -5,13 +5,13 @@
 
 
 from typing import Optional
+from contextlib import contextmanager
 
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
 
 import app.core.logger_utils as logger_utils
-from app.core.config import settings
-from contextlib import contextmanager
+from app.configs import llm_config, qdrant_config
 
 
 logger = logger_utils.get_logger(__name__)
@@ -22,15 +22,15 @@ class QdrantDatabaseConnector:
 
     def __init__(self) -> None:
         if self._instance is None:
-            if settings.USE_QDRANT_CLOUD:
+            if qdrant_config.USE_QDRANT_CLOUD:
                 self._instance = QdrantClient(
-                    url=settings.QDRANT_CLOUD_URL,
-                    api_key=settings.QDRANT_APIKEY,
+                    url=qdrant_config.QDRANT_CLOUD_URL,
+                    api_key=qdrant_config.QDRANT_APIKEY,
                 )
             else:
                 self._instance = QdrantClient(
-                    host=settings.QDRANT_DATABASE_HOST,
-                    port=settings.QDRANT_DATABASE_PORT,
+                    host=qdrant_config.QDRANT_DATABASE_HOST,
+                    port=qdrant_config.QDRANT_DATABASE_PORT,
                 )
                 logger.debug("Qdrant连接成功")
 
@@ -43,7 +43,7 @@ class QdrantDatabaseConnector:
     def create_vector_collection(self, collection_name: str):
         self._instance.create_collection(
             collection_name=collection_name,
-            vectors_config=models.VectorParams(size=settings.EMBEDDING_SIZE, distance=models.Distance.COSINE),
+            vectors_config=models.VectorParams(size=llm_config.EMBEDDING_SIZE, distance=models.Distance.COSINE),
             quantization_config=models.ScalarQuantization(
                 scalar=models.ScalarQuantizationConfig(
                     type=models.ScalarType.INT8,
@@ -96,8 +96,8 @@ class QdrantClientManager:
         if cls._instance is None:
             try:
                 cls._instance = QdrantClient(
-                    host=settings.QDRANT_DATABASE_HOST,
-                    port=settings.QDRANT_DATABASE_PORT,
+                    host=qdrant_config.QDRANT_DATABASE_HOST,
+                    port=qdrant_config.QDRANT_DATABASE_PORT,
                 )
                 logger.info("成功初始化 Qdrant 客户端连接")
             except Exception as e:

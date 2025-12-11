@@ -8,11 +8,11 @@
 """
 
 from langfuse import Langfuse
+from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
+from sqlmodel.ext.asyncio.session import AsyncSession
+
 from app.configs import agent_config as settings
-from app.configs import db_config
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from app.core.db.postgre import async_session, engine
 
 # Centralized Langfuse client configured from environment via AgentConfig
 langfuse = Langfuse(
@@ -22,9 +22,6 @@ langfuse = Langfuse(
 )
 
 
-DB_URL = db_config.POSTGRES_URL
-
-engine = create_engine(DB_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-Base = declarative_base()
+# Expose async engine/session maker for legacy imports; prefer using app.core.db.postgre directly.
+postgres_engine: AsyncEngine = engine
+AsyncSessionMaker: async_sessionmaker[AsyncSession] = async_session

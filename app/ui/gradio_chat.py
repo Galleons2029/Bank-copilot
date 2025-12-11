@@ -3,7 +3,7 @@ import os
 import uuid
 
 from app.core.mq import publish_to_rabbitmq
-from app.core.config import settings
+from app.configs import llm_config, qdrant_config
 from app.core import logger_utils
 from app.pipeline.feature_pipeline.models.raw import DocumentRawModel
 from app.pipeline.inference_pipeline.reasoning import ReasoningPipeline
@@ -18,7 +18,7 @@ UPLOAD_FOLDER = os.path.join(ROOT_DIR, "uploads")
 
 
 # 使用配置中的 Qdrant 连接信息，兼容 Docker 和本地部署
-client = QdrantClient(host=settings.QDRANT_DATABASE_HOST, port=settings.QDRANT_DATABASE_PORT)
+client = QdrantClient(host=qdrant_config.QDRANT_DATABASE_HOST, port=qdrant_config.QDRANT_DATABASE_PORT)
 doc_bases = [collection.name for collection in client.get_collections().collections]
 
 
@@ -113,7 +113,7 @@ def add_new_collection(new_collection: str):
 
     client.create_collection(
         collection_name=new_collection,
-        vectors_config=models.VectorParams(size=settings.EMBEDDING_SIZE, distance=models.Distance.COSINE),
+        vectors_config=models.VectorParams(size=llm_config.EMBEDDING_SIZE, distance=models.Distance.COSINE),
         quantization_config=models.ScalarQuantization(
             scalar=models.ScalarQuantizationConfig(
                 type=models.ScalarType.INT8,

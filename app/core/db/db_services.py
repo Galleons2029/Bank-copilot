@@ -15,8 +15,10 @@ from typing import (
 )
 
 from fastapi import HTTPException
+from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import SQLModel, select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.configs import (
     Environment,
@@ -38,7 +40,7 @@ class DatabaseService:
     def __init__(self):
         """Prepare async engine and session maker; call init() at startup to create tables."""
         self.engine = async_engine
-        self.session_maker = async_session
+        self.session_maker: async_sessionmaker[AsyncSession] = async_session
 
     async def init(self) -> None:
         """Create tables using async engine if not existing."""
@@ -208,8 +210,9 @@ class DatabaseService:
             logger.info("session_name_updated", session_id=session_id, name=name)
             return chat_session
 
-    def get_session_maker(self):
+    def get_session_maker(self) -> async_sessionmaker[AsyncSession]:
         """Return the async session maker for advanced use."""
+
         return self.session_maker
 
     async def health_check(self) -> bool:

@@ -1,6 +1,5 @@
 import argparse
 
-from app.core.config import settings
 from app.core.logger_utils import get_logger
 
 # from app.core.opik_utils import create_dataset_from_artifacts
@@ -14,13 +13,7 @@ from app.pipeline.inference_pipeline.reasoning import ReasoningPipeline
 #     Hallucination,
 # )
 
-settings.patch_localhost()
-
 logger = get_logger(__name__)
-logger.warning(
-    "Patched settings to work with 'localhost' URLs. \
-    Remove the 'settings.patch_localhost()' call from above when deploying or running inside Docker."
-)
 
 
 def evaluation_task(x: dict) -> dict:

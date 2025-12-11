@@ -68,6 +68,11 @@ class QdrantConfig(BaseSettings):
 
     DEBUG: bool = True
     COLLECTION_TEST: str | None = "multi_demo"
+    QDRANT_DATABASE_HOST: str | None = "localhost"
+    QDRANT_DATABASE_PORT: int = 6333
+    USE_QDRANT_CLOUD: bool = False
+    QDRANT_CLOUD_URL: str | None = None
+    QDRANT_APIKEY: str | None = None
 
     MULTIMODAL_SIZE: int | None = 1024
 
@@ -77,3 +82,11 @@ class QdrantConfig(BaseSettings):
     POOL_RECYCLE: int = 1800  # 秒，避免空闲连接被中断
     ECHO_SQL: bool = False
     COMMAND_TIMEOUT: float = 5.0  # 秒，asyncpg 全局命令超时
+
+
+class MongoConfig(BaseSettings):
+    model_config = SettingsConfigDict(env_file=ROOT_DIR, env_file_encoding="utf-8", extra="ignore")
+
+    MONGO_DATABASE_HOST: str = "mongodb://mongo1:30001,mongo2:30002,mongo3:30003/?replicaSet=my-replica-set"
+    MONGO_DATABASE_NAME: str = "bank"
+    DISABLE_MONGO: bool = False

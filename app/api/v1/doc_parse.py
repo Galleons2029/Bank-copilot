@@ -14,7 +14,7 @@ import os
 import io
 from abc import ABC, abstractmethod
 
-parse_doc_router = APIRouter()
+router = APIRouter()
 
 
 class ParseResponse(BaseModel):
@@ -110,7 +110,7 @@ def get_ext(filename: str) -> str:
     return os.path.splitext(filename)[-1][1:].lower()
 
 
-@parse_doc_router.post("/parse", response_model=ParseResponse)
+@router.post("/parse", response_model=ParseResponse)
 async def parse_document(file: UploadFile = File(...)):
     ext = get_ext(file.filename)
     parser = DocumentParserFactory.get_parser(ext)

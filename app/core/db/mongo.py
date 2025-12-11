@@ -1,8 +1,9 @@
 import os
+
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
 
-from app.core.config import settings
+from app.configs import mongo_config
 from app.core.logger_utils import get_logger
 
 logger = get_logger(__file__)
@@ -39,7 +40,7 @@ class _DisabledMongoClient:
         pass
 
     def get_database(self, name: str | None = None):
-        db_name = name or settings.MONGO_DATABASE_NAME
+        db_name = name or mongo_config.MONGO_DATABASE_NAME
         return _DisabledMongoDatabase(db_name)
 
     def close(self):
@@ -54,7 +55,7 @@ class MongoDatabaseConnector:
     def __new__(cls, *args, **kwargs):
         # If disabled, always return a disabled client without attempting network calls
         env_disabled = os.getenv("DISABLE_MONGO", "").strip().lower() in {"1", "true", "yes", "on"}
-        if settings.DISABLE_MONGO or env_disabled:
+        if mongo_config.DISABLE_MONGO or env_disabled:
             if cls._instance is None or not isinstance(cls._instance, _DisabledMongoClient):
                 logger.warning("MongoDB usage is disabled via settings.DISABLE_MONGO=true. Using no-op client.")
                 cls._instance = _DisabledMongoClient()
@@ -62,9 +63,9 @@ class MongoDatabaseConnector:
 
         if cls._instance is None or isinstance(cls._instance, _DisabledMongoClient):
             try:
-                cls._instance = MongoClient(settings.MONGO_DATABASE_HOST)
+                cls._instance = MongoClient(mongo_config.MONGO_DATABASE_HOST)
                 # logger.info(
-                #     f"成功连接到数据库，URI: {settings.MONGO_DATABASE_HOST}"
+                #     f"成功连接到数据库，URI: {mongo_config.MONGO_DATABASE_HOST}"
                 # )
             except ConnectionFailure:
                 logger.error("无法连接到数据库。")

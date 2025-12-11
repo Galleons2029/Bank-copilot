@@ -43,6 +43,11 @@ uv sync   # if not have uv use "pip install uv" for install
 ``` 
 to synchronize project environment automatically
 
+### Configuration
+- Runtime settings are loaded from `.env*` files by the config objects under `app/configs/`.
+- General app defaults live in `app/configs/agent_config.py`, database/Vector DB settings in `app/configs/db_config.py`, and LLM specifics in `app/configs/llm_config.py`.
+- Import configs in code via `from app.configs import agent_config as settings` or the specialized config you need (`qdrant_config`, `mongo_config`, `llm_config`, etc.).
+
 ### Database setup
 
 1. Create a PostgreSQL database (e.g Supabase or local PostgreSQL)

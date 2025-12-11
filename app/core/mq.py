@@ -4,8 +4,8 @@ import time
 
 import pika
 from pika.adapters.blocking_connection import BlockingChannel
-from app.core.config import settings
 
+from app.configs import agent_config as settings
 from app.core.logger_utils import get_logger
 
 logger = get_logger(__file__)

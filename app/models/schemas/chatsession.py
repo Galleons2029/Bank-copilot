@@ -12,6 +12,7 @@ from sqlmodel import SQLModel, Field, Relationship
 
 
 class Conversation(SQLModel, table=True):
+    __tablename__ = "conversation"
     id: int | None = Field(default=None, primary_key=True)
     name: str
     secret_name: str
@@ -20,6 +21,7 @@ class Conversation(SQLModel, table=True):
 
 
 class ChatSession(SQLModel, table=True):
+    __tablename__ = "chat_session"
     id: Optional[int] = Field(default=None, primary_key=True)
     llm_name: str
 
@@ -27,6 +29,7 @@ class ChatSession(SQLModel, table=True):
 
 
 class ChatHistory(SQLModel, table=True):
+    __tablename__ = "chat_history"
     id: Optional[int] = Field(default=None, primary_key=True)
     is_human_message: bool
     content: str

@@ -1,8 +1,8 @@
-from app.core.config import settings
 import requests
 import json
 import os
 
+from app.configs import llm_config
 import app.core.logger_utils as logger_utils
 
 logger = logger_utils.get_logger(__name__)
@@ -16,7 +16,7 @@ class Reranker:
     @staticmethod
     def generate_response(query: str, passages: list[str], keep_top_k: int) -> list[str]:
         payload = {
-            "model": settings.Silicon_model_rerank,
+            "model": llm_config.RERANK_MODEL,
             "query": query,
             "documents": passages,
             "top_n": keep_top_k,
@@ -25,9 +25,9 @@ class Reranker:
             "overlap_tokens": 80,
         }
 
-        headers = {"Authorization": f"Bearer {settings.SILICON_KEY}", "Content-Type": "application/json"}
+        headers = {"Authorization": f"Bearer {llm_config.SILICON_KEY}", "Content-Type": "application/json"}
 
-        response = requests.post(os.path.join(settings.Silicon_base_url, "rerank"), json=payload, headers=headers)
+        response = requests.post(os.path.join(llm_config.SILICON_BASE_URL, "rerank"), json=payload, headers=headers)
         response_data = json.loads(response.text)
 
         logger.debug(response_data)

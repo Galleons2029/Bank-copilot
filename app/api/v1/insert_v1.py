@@ -3,21 +3,19 @@
 # @Author : Galleons
 # @File   : insert_v1.py
 
-"""
-文件上传
-"""
+"""文件上传相关接口。"""
 
-import logging
+from typing import List
+
 from fastapi import APIRouter
 from qdrant_client import models
-from app.core.db.qdrant import QdrantClientManager
-from app.configs import qdrant_config
-from typing import List
-from app.core.rag.embedding import image_embedding, embedd_text_tolist
 
-# 配置日志
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)
+from app.configs import qdrant_config
+from app.core.db.qdrant import QdrantClientManager
+from app.core.logger_utils import get_logger
+from app.core.rag.embedding import embedd_text_tolist, image_embedding
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 

@@ -22,13 +22,6 @@ sys.path.append(ROOT_DIR)
 
 logger = get_logger(__name__)
 
-settings.patch_localhost()
-logger.warning(
-    "Patched settings to work with 'localhost' URLs. \
-    Remove the 'settings.patch_localhost()' call from above when deploying or running inside Docker."  # noqa: E501
-)
-
-
 client = QdrantDatabaseConnector()
 
 

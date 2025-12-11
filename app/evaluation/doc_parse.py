@@ -10,7 +10,7 @@
 import uuid
 
 from app.core.mq import publish_to_rabbitmq
-from app.core.config import settings
+from app.configs import llm_config, qdrant_config
 from app.core import logger_utils
 from app.pipeline.feature_pipeline.models.raw import DocumentRawModel
 from qdrant_client import QdrantClient, models
@@ -18,7 +18,7 @@ from qdrant_client import QdrantClient, models
 logger = logger_utils.get_logger(__name__)
 
 # 使用配置中的 Qdrant 连接信息，兼容 Docker 和本地部署
-client = QdrantClient(host=settings.QDRANT_DATABASE_HOST, port=settings.QDRANT_DATABASE_PORT)
+client = QdrantClient(host=qdrant_config.QDRANT_DATABASE_HOST, port=qdrant_config.QDRANT_DATABASE_PORT)
 
 collection_name = "test1"
 try:
@@ -30,7 +30,7 @@ except Exception:
     )
     client.create_collection(
         collection_name=collection_name,
-        vectors_config=models.VectorParams(size=settings.EMBEDDING_SIZE, distance=models.Distance.COSINE),
+        vectors_config=models.VectorParams(size=llm_config.EMBEDDING_SIZE, distance=models.Distance.COSINE),
         quantization_config=models.ScalarQuantization(
             scalar=models.ScalarQuantizationConfig(
                 type=models.ScalarType.INT8,

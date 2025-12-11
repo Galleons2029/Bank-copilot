@@ -15,7 +15,8 @@ import os
 import uuid
 
 from app.core.mq import publish_to_rabbitmq
-from app.core.config import settings
+from app.configs import agent_config as app_settings
+from app.configs import llm_config, qdrant_config
 from app.core import logger_utils
 from app.pipeline.feature_pipeline.models.raw import DocumentRawModel
 from app.pipeline.inference_pipeline.reasoning import ReasoningPipeline
@@ -36,16 +37,16 @@ UPLOAD_FOLDER = os.path.join(ROOT_DIR, "uploads")
 
 sleep_time = 0.5
 model = ChatOpenAI(
-    model=settings.MODEL_PATH,
-    api_key=settings.KEY,
-    base_url=settings.LOCAL,
+    model=llm_config.LLM_MODEL or llm_config.FREE_LLM_MODEL,
+    api_key=llm_config.API_KEY or llm_config.SILICON_KEY,
+    base_url=llm_config.SILICON_BASE_URL,
     extra_body={"chat_template_kwargs": {"enable_thinking": False}},
 )
 query_expansion_template = QueryExpansionTemplate()
 prompt = query_expansion_template.create_template(3)
 chain = prompt | model
 # 使用配置中的 Qdrant 连接信息，兼容 Docker 和本地部署
-client = QdrantClient(host=settings.QDRANT_DATABASE_HOST, port=settings.QDRANT_DATABASE_PORT)
+client = QdrantClient(host=qdrant_config.QDRANT_DATABASE_HOST, port=qdrant_config.QDRANT_DATABASE_PORT)
 doc_bases = [collection.name for collection in client.get_collections().collections]
 
 logger = logger_utils.get_logger(__name__)
@@ -139,7 +140,7 @@ def add_new_collection(new_collection: str):
 
     client.create_collection(
         collection_name=new_collection,
-        vectors_config=models.VectorParams(size=settings.EMBEDDING_SIZE, distance=models.Distance.COSINE),
+        vectors_config=models.VectorParams(size=llm_config.EMBEDDING_SIZE, distance=models.Distance.COSINE),
         quantization_config=models.ScalarQuantization(
             scalar=models.ScalarQuantizationConfig(
                 type=models.ScalarType.INT8,
@@ -163,7 +164,7 @@ def format_prompt(
     prompt = prompt_template.format(**prompt_template_variables)
 
     num_system_prompt_tokens = compute_num_tokens(system_prompt)
-    prompt, prompt_num_tokens = truncate_text_to_max_tokens(prompt, max_tokens=settings.MAX_INPUT_TOKENS - num_system_prompt_tokens)
+    prompt, prompt_num_tokens = truncate_text_to_max_tokens(prompt, max_tokens=app_settings.MAX_TOKENS - num_system_prompt_tokens)
     total_input_tokens = num_system_prompt_tokens + prompt_num_tokens
 
     messages = [

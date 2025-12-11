@@ -1,4 +1,3 @@
-from app.core.config import settings
 from app.configs import llm_config
 from langchain_openai import ChatOpenAI
 
@@ -20,8 +19,8 @@ class QueryExpansion:
         prompt = query_expansion_template.create_template(to_expand_to_n)
         model = ChatOpenAI(
             model=llm_config.FREE_LLM_MODEL,
-            api_key=settings.SILICON_KEY,
-            base_url=settings.Silicon_base_url,
+            api_key=llm_config.SILICON_KEY,
+            base_url=llm_config.SILICON_BASE_URL,
         )
         chain = prompt | model
 

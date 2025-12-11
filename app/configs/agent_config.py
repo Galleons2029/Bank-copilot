@@ -166,6 +166,13 @@ class AgentConfig:
         self.POSTGRES_MAX_OVERFLOW = int(os.getenv("POSTGRES_MAX_OVERFLOW", "10"))
         self.CHECKPOINT_TABLES = ["checkpoint_blobs", "checkpoint_writes", "checkpoints"]
 
+        # RabbitMQ Configuration
+        self.RABBITMQ_DEFAULT_USERNAME = os.getenv("RABBITMQ_DEFAULT_USERNAME", "guest")
+        self.RABBITMQ_DEFAULT_PASSWORD = os.getenv("RABBITMQ_DEFAULT_PASSWORD", "guest")
+        self.RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "localhost")
+        self.RABBITMQ_PORT = int(os.getenv("RABBITMQ_PORT", "5672"))
+        self.RABBITMQ_QUEUE_NAME = os.getenv("RABBITMQ_QUEUE_NAME", "rag_test")
+
         # Rate Limiting Configuration
         self.RATE_LIMIT_DEFAULT = parse_list_from_env("RATE_LIMIT_DEFAULT", ["200 per day", "50 per hour"])
 

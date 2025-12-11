@@ -14,7 +14,7 @@ from app.pipeline.inference_pipeline.prompt_templates import InferenceTemplate
 from app.core.rag.retriever import VectorRetriever
 from app.core.rag.prompt_templates import QueryExpansionTemplate
 from langchain_openai import ChatOpenAI
-from app.core.config import settings
+from app.configs import llm_config
 from langchain_core.prompts import PromptTemplate
 
 from app.core import logger_utils
@@ -23,9 +23,9 @@ logger = logger_utils.get_logger(__name__)
 
 sleep_time = 0.3
 model = ChatOpenAI(
-    model=settings.Silicon_model_v1,
-    api_key=settings.SILICON_KEY,
-    base_url=settings.Silicon_base_url,
+    model=llm_config.LLM_MODEL or llm_config.FREE_LLM_MODEL,
+    api_key=llm_config.SILICON_KEY,
+    base_url=llm_config.SILICON_BASE_URL,
     extra_body={"chat_template_kwargs": {"enable_thinking": False}},
 )
 query_expansion_template = QueryExpansionTemplate()

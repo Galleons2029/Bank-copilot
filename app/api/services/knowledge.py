@@ -11,7 +11,7 @@ from uuid import uuid4
 import httpx
 from fastapi import HTTPException
 
-from app.core.config import settings
+from app.configs import qdrant_config
 from app.models.knowledge import (
     ChunkCreateRequest,
     KnowledgeBase,
@@ -392,8 +392,8 @@ async def _qdrant_request(method: str, path: str, *, json: dict[str, Any] | None
     base_url = _resolve_qdrant_base_url()
     url = path if path.startswith(("http://", "https://")) else f"{base_url}{path}"
     headers = {"content-type": "application/json"}
-    if settings.QDRANT_APIKEY:
-        headers["api-key"] = settings.QDRANT_APIKEY
+    if qdrant_config.QDRANT_APIKEY:
+        headers["api-key"] = qdrant_config.QDRANT_APIKEY
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -412,14 +412,14 @@ async def _qdrant_request(method: str, path: str, *, json: dict[str, Any] | None
 
 
 def _resolve_qdrant_base_url() -> str:
-    if settings.USE_QDRANT_CLOUD and settings.QDRANT_CLOUD_URL:
-        return settings.QDRANT_CLOUD_URL.rstrip("/")
+    if qdrant_config.USE_QDRANT_CLOUD and qdrant_config.QDRANT_CLOUD_URL:
+        return qdrant_config.QDRANT_CLOUD_URL.rstrip("/")
 
-    host = settings.QDRANT_DATABASE_HOST or "127.0.0.1"
+    host = qdrant_config.QDRANT_DATABASE_HOST or "127.0.0.1"
     if host.startswith(("http://", "https://")):
         return host.rstrip("/")
 
-    port = settings.QDRANT_DATABASE_PORT or 6333
+    port = qdrant_config.QDRANT_DATABASE_PORT or 6333
     return f"http://{host}:{port}"
 
 

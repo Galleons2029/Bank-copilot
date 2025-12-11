@@ -1,5 +1,6 @@
-from app.core.config import settings
 from langchain_openai import ChatOpenAI
+
+from app.configs import llm_config
 
 import app.core.logger_utils as logger_utils
 from app.core import lib
@@ -17,9 +18,9 @@ class SelfQuery:
     def generate_response(query: str) -> str | None:
         prompt = SelfQueryTemplate().create_template()
         model = ChatOpenAI(
-            model=settings.Silicon_model_v1,
-            api_key=settings.Silicon_api_key3,
-            base_url=settings.Silicon_base_url,
+            model=llm_config.LLM_MODEL or llm_config.FREE_LLM_MODEL,
+            api_key=llm_config.SILICON_KEY,
+            base_url=llm_config.SILICON_BASE_URL,
         )
         chain = prompt | model
         # chain = chain.with_config({"callbacks": [SelfQuery.opik_tracer]})

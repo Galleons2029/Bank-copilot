@@ -10,7 +10,7 @@
 from openevals.simulators import run_multiturn_simulation, create_llm_simulated_user
 from openevals.llm import create_llm_as_judge
 from openevals.types import ChatCompletionMessage
-from app.core.config import settings
+from app.configs import llm_config
 from langchain_openai import ChatOpenAI
 
 from openai import OpenAI
@@ -27,7 +27,7 @@ client = OpenAI(api_key=api_key, base_url="https://api.siliconflow.cn/v1")
 langchain_client = ChatOpenAI(
     model="Qwen/Qwen3-8B",
     api_key=api_key,
-    base_url=settings.Silicon_base_url,
+    base_url=llm_config.SILICON_BASE_URL,
 )
 
 history = {}

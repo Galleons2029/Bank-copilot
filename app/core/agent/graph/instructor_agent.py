@@ -51,7 +51,7 @@ CURRICULUM_STYLE = (
 DEFAULT_COLLECTION = os.getenv("TRAINING_QDRANT_COLLECTION", "zsk_test1")
 
 # --- LLM setup -----------------------------------------------------------------------
-MODEL_NAME = agent_config.LLM_MODEL or llm_config.LLM_MODEL or "deepseek-ai/DeepSeek-V3"
+MODEL_NAME = agent_config.LLM_MODEL or llm_config.LLM_MODEL or "deepseek-ai/DeepSeek-V3.2"
 API_KEY = agent_config.LLM_API_KEY or llm_config.SILICON_KEY or os.getenv("LLM_API_KEY") or os.getenv("API_KEY")
 BASE_URL = llm_config.SILICON_BASE_URL or os.getenv("LLM_BASE_URL")
 MAX_TOKENS = agent_config.MAX_TOKENS

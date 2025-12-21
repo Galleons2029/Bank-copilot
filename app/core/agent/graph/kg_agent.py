@@ -4,6 +4,7 @@ import os
 import sys
 from datetime import datetime, timezone
 from typing import Annotated
+from app.configs import llm_config
 
 from dotenv import load_dotenv
 from typing_extensions import TypedDict
@@ -41,22 +42,22 @@ def setup_logging():
 logger = setup_logging()
 
 config = LLMConfig(
-    api_key="sk-orsgnhlexlkmmlszeqwtgjhxbnimvxydtjdeyueqtamindpo",
-    base_url="https://api.siliconflow.cn/v1",
-    model="deepseek-ai/DeepSeek-V3.2-Exp",
-    small_model="deepseek-ai/DeepSeek-V3.2-Exp",
+    api_key=llm_config.SILICON_KEY,
+    base_url=llm_config.SILICON_BASE_URL,
+    model=llm_config.LLM_MODEL,
+    small_model=llm_config.FREE_LLM_MODEL,
     temperature=0.2,
     max_tokens=1024,
 )
 embedder_config = OpenAIEmbedderConfig(
-    api_key="sk-orsgnhlexlkmmlszeqwtgjhxbnimvxydtjdeyueqtamindpo",
-    base_url="https://api.siliconflow.cn/v1",
+    api_key=llm_config.SILICON_KEY,
+    base_url=llm_config.SILICON_BASE_URL,
     embedding_model="BAAI/bge-m3",
     embedding_dim=1024,
 )
 
 openai_client = OpenAIClient(
-    client=AsyncOpenAI(api_key="sk-orsgnhlexlkmmlszeqwtgjhxbnimvxydtjdeyueqtamindpo", base_url="https://api.siliconflow.cn/v1"), config=config
+    client=AsyncOpenAI(api_key=llm_config.SILICON_KEY, base_url=llm_config.SILICON_BASE_URL), config=config
 )
 embedder = OpenAIEmbedder(config=embedder_config)
 reranker_client = OpenAIRerankerClient(config=config)
@@ -73,9 +74,9 @@ def edges_to_facts_string(entities: list[EntityEdge]):
 
 
 model = init_chat_model(
-    model="deepseek-ai/DeepSeek-V3.2-Exp",
-    base_url="https://api.siliconflow.cn/v1",
-    api_key="sk-orsgnhlexlkmmlszeqwtgjhxbnimvxydtjdeyueqtamindpo",
+    model=llm_config.LLM_MODEL,
+    base_url=llm_config.SILICON_BASE_URL,
+    api_key=llm_config.SILICON_KEY,
     model_provider="openai",
     temperature=0,
 )

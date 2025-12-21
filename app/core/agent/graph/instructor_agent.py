@@ -329,4 +329,4 @@ graph_builder.add_edge("retrieve_context", "design_curriculum")
 graph_builder.add_edge("design_curriculum", "respond")
 graph_builder.add_edge("respond", END)
 
-agent = graph_builder.compile()
+instructor_agent = graph_builder.compile()

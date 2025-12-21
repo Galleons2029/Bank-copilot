@@ -22,7 +22,7 @@ from langgraph.prebuilt import tools_condition, ToolNode
 from app.core.rag.retriever import VectorRetriever
 from app.configs import llm_config
 from pydantic import BaseModel, Field
-from app.core.agent.call_llm import client as model
+from app.core.agent.call_llm import model as llm
 
 from langfuse import Langfuse
 from langfuse.langchain import CallbackHandler
@@ -32,6 +32,7 @@ langfuse = Langfuse(
     public_key="pk-lf-49f12594-88c3-4991-be28-1e4eb4570a0d",
     host="https://cloud.langfuse.com",
 )
+
 
 langfuse_handler = CallbackHandler()
 
@@ -144,11 +145,8 @@ def agent(state):
     Returns:
         dict: The updated state with the agent response appended to messages
     """
-    name = state['user_id']
-    print(f"记住我叫 {name}---CALL AGENT---")
     messages = state["messages"]
-    # model = ChatOpenAI(temperature=0, streaming=True, model="gpt-4o")
-    model = ChatOpenAI(model="deepseek-ai/DeepSeek-V3", api_key=llm_config.SILICON_KEY, base_url="https://api.siliconflow.cn/v1", temperature=0)
+    model = llm
     model = model.bind_tools(tools)
     response = model.invoke(messages)
     # We return a list, because this will get added to the existing list

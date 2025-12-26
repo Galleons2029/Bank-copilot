@@ -22,7 +22,7 @@ from langgraph.prebuilt import tools_condition, ToolNode
 from app.core.rag.retriever import VectorRetriever
 from app.configs import llm_config
 from pydantic import BaseModel, Field
-from app.core.agent.call_llm import model as llm
+from app.core.agent.call_llm import model
 
 from langfuse import Langfuse
 from langfuse.langchain import CallbackHandler
@@ -146,9 +146,8 @@ def agent(state):
         dict: The updated state with the agent response appended to messages
     """
     messages = state["messages"]
-    model = llm
-    model = model.bind_tools(tools)
-    response = model.invoke(messages)
+    llm = model.bind_tools(tools)
+    response = llm.invoke(messages)
     # We return a list, because this will get added to the existing list
     return {"messages": [response]}
 

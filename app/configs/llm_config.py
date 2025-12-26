@@ -41,7 +41,7 @@ class LLMConfig(BaseSettings):
 
     API_KEY: str | None = None
 
-    ZHIPAI_API_KEY: str | None = None
+    ZHIPAI_KEY: str | None = None
     ZHIPAI_BASE_URL: str | None = "https://open.bigmodel.cn/api/paas/v4/"
 
 settings = LLMConfig()

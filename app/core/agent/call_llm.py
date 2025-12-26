@@ -13,11 +13,11 @@ client = ChatOpenAI(
 model = init_chat_model(
     model=llm_config.LLM_MODEL_PRO,
     base_url=llm_config.ZHIPAI_BASE_URL,
-    api_key=llm_config.ZHIPAI_API_KEY,
+    api_key=llm_config.ZHIPAI_KEY,
     model_provider="openai",
     temperature=0,
 )
 
 if __name__ == "__main__":
-    response = client.invoke("你好！")
+    response = model.invoke("你好！")
     print(response)

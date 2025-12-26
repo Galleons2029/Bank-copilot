@@ -24,7 +24,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph
 from langgraph.graph.message import add_messages
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing_extensions import Annotated, TypedDict
 
 from app.configs import agent_config, llm_config
@@ -50,6 +50,25 @@ CURRICULUM_STYLE = (
 
 DEFAULT_COLLECTION = os.getenv("TRAINING_QDRANT_COLLECTION", "zsk_test1")
 
+TASK_TYPE_ALIASES = {
+    "onboarding": "onboarding",
+    "新员工/非财会同事培训": "onboarding",
+    "新员工培训": "onboarding",
+    "非财会同事培训": "onboarding",
+    "培训": "onboarding",
+    "入职": "onboarding",
+    "multidimensional_lookup": "multidimensional_lookup",
+    "多维检索": "multidimensional_lookup",
+    "穿透检索": "multidimensional_lookup",
+    "分录穿透检索": "multidimensional_lookup",
+    "检索": "multidimensional_lookup",
+    "ledger_reasoning": "ledger_reasoning",
+    "总分不平": "ledger_reasoning",
+    "总分不平排查": "ledger_reasoning",
+    "总分不平推理": "ledger_reasoning",
+    "总账分户不平": "ledger_reasoning",
+}
+
 # --- LLM setup -----------------------------------------------------------------------
 MODEL_NAME = agent_config.LLM_MODEL or llm_config.LLM_MODEL or "deepseek-ai/DeepSeek-V3.2"
 API_KEY = agent_config.LLM_API_KEY or llm_config.SILICON_KEY or os.getenv("LLM_API_KEY") or os.getenv("API_KEY")
@@ -74,15 +93,77 @@ response_model = ChatOpenAI(temperature=0.2, **common_kwargs)
 class IntentAnalysis(BaseModel):
     """Structured representation of the instructor intent analysis."""
 
-    task_type: Literal["onboarding", "multidimensional_lookup", "ledger_reasoning"] = Field(description="任务类型：onboarding/检索/总分不平排查")
-    task_summary: str = Field(description="一句话总结用户需求与成效标准")
-    needs_context: bool = Field(description="是否需要补充知识库/上下文")
+    task_type: Literal["onboarding", "multidimensional_lookup", "ledger_reasoning"] = Field(
+        default="onboarding",
+        description="任务类型：onboarding/检索/总分不平排查",
+    )
+    task_summary: str = Field(default="", description="一句话总结用户需求与成效标准")
+    needs_context: bool = Field(default=False, description="是否需要补充知识库/上下文")
     knowledge_focus: list[str] = Field(
         default_factory=list,
         description="检索或回答需要覆盖的关键实体/字段/制度",
     )
-    deliverable_tone: str = Field(description="输出应当呈现的语气或表达方式，例如表格/步骤/故事线")
+    deliverable_tone: str = Field(
+        default="步骤/表格",
+        description="输出应当呈现的语气或表达方式，例如表格/步骤/故事线",
+    )
     follow_up_questions: list[str] = Field(default_factory=list, description="若信息不足，需要向用户确认的问题")
+
+    @field_validator("task_type", mode="before")
+    @classmethod
+    def normalize_task_type(cls, value: object) -> object:
+        if value is None:
+            return "onboarding"
+        if isinstance(value, str):
+            normalized = value.strip()
+            mapped = TASK_TYPE_ALIASES.get(normalized)
+            if mapped:
+                return mapped
+            if any(keyword in normalized for keyword in ("总分不平", "总账", "分户", "对账", "余额不平")):
+                return "ledger_reasoning"
+            if any(keyword in normalized for keyword in ("检索", "查询", "穿透", "分录", "明细", "多维")):
+                return "multidimensional_lookup"
+            if any(keyword in normalized for keyword in ("培训", "入职", "新员工")):
+                return "onboarding"
+            return "onboarding"
+        return value
+
+    @field_validator("needs_context", mode="before")
+    @classmethod
+    def normalize_needs_context(cls, value: object) -> object:
+        if value is None:
+            return False
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if not normalized:
+                return False
+            if normalized in {"true", "yes", "y", "是", "需要", "需要检索"}:
+                return True
+            if normalized in {"false", "no", "n", "否", "不需要", "无需"}:
+                return False
+        return value
+
+    @field_validator("knowledge_focus", "follow_up_questions", mode="before")
+    @classmethod
+    def normalize_list_fields(cls, value: object) -> object:
+        if value is None:
+            return []
+        if isinstance(value, str):
+            parts = [
+                part.strip()
+                for part in value.replace("；", ";").replace("，", ",").replace("、", ",").split(",")
+            ]
+            return [part for part in parts if part]
+        return value
+
+    @field_validator("deliverable_tone", mode="before")
+    @classmethod
+    def normalize_deliverable_tone(cls, value: object) -> object:
+        if value is None:
+            return "步骤/表格"
+        if isinstance(value, str):
+            return value.strip() or "步骤/表格"
+        return value
 
 
 class CurriculumPlan(BaseModel):
@@ -111,7 +192,10 @@ intent_prompt = ChatPromptTemplate.from_messages(
         (
             "system",
             f"你是Bank-Copilot的教练协调器，需理解上下文并挑选适合的教练路径。{PROJECT_CONTEXT} "
-            "输出JSON以标记任务、是否需要知识检索以及要追问的缺失信息。",
+            "输出严格JSON，不要包含多余文本。字段必须齐全，task_type 只能是 onboarding / multidimensional_lookup / ledger_reasoning。"
+            "格式示例："
+            '{"task_type":"onboarding","task_summary":"一句话总结","needs_context":true,'
+            '"knowledge_focus":["关键词1","关键词2"],"deliverable_tone":"步骤/表格","follow_up_questions":["问题1"]}',
         ),
         (
             "human",
@@ -228,6 +312,42 @@ def format_plan(plan: dict | None) -> str:
     return "\n\n".join(sections)
 
 
+def _classify_task_type(question: str) -> str:
+    if any(keyword in question for keyword in ("总分不平", "总账", "分户", "对账", "余额不平")):
+        return "ledger_reasoning"
+    if any(keyword in question for keyword in ("检索", "查询", "穿透", "分录", "明细", "多维", "科目", "机构", "币种", "日期")):
+        return "multidimensional_lookup"
+    return "onboarding"
+
+
+def _fallback_intent_from_question(question: str) -> dict:
+    task_type = _classify_task_type(question)
+    return {
+        "task_type": task_type,
+        "task_summary": f"围绕“{question[:80]}”提供可执行指导",
+        "needs_context": task_type in {"multidimensional_lookup", "ledger_reasoning"},
+        "knowledge_focus": [],
+        "deliverable_tone": "步骤/表格",
+        "follow_up_questions": [],
+    }
+
+
+def _coerce_intent_payload(intent: dict | None, question: str) -> dict:
+    normalized = dict(intent or {})
+    if not normalized.get("task_summary"):
+        normalized["task_summary"] = question[:120].strip() or "需要进一步澄清的任务"
+    if normalized.get("needs_context") is None:
+        task_type = normalized.get("task_type")
+        normalized["needs_context"] = task_type in {"multidimensional_lookup", "ledger_reasoning"}
+    if not normalized.get("deliverable_tone"):
+        normalized["deliverable_tone"] = "步骤/表格"
+    if not isinstance(normalized.get("knowledge_focus"), list):
+        normalized["knowledge_focus"] = []
+    if not isinstance(normalized.get("follow_up_questions"), list):
+        normalized["follow_up_questions"] = []
+    return normalized
+
+
 def build_retrieval_query(messages: Sequence[BaseMessage], intent: dict | None) -> str:
     """Compose a retrieval query using the last user need and intent focus."""
     user_question = get_latest_user_question(messages)
@@ -247,9 +367,14 @@ def should_fetch_context(state: InstructorState) -> Literal["retrieve", "skip"]:
 def analyze_intent(state: InstructorState) -> InstructorState:
     question = get_latest_user_question(state["messages"])
     history_text = render_chat_history(state["messages"][:-1])
-    analysis = intent_chain.invoke({"history": history_text, "question": question})
+    try:
+        analysis = intent_chain.invoke({"history": history_text, "question": question})
+        intent = analysis.model_dump()
+    except Exception:
+        intent = _fallback_intent_from_question(question)
+    intent = _coerce_intent_payload(intent, question)
     current_calls = state.get("llm_calls", 0) + 1
-    return {"intent": analysis.model_dump(), "llm_calls": current_calls}
+    return {"intent": intent, "llm_calls": current_calls}
 
 
 def retrieve_context(state: InstructorState) -> InstructorState:

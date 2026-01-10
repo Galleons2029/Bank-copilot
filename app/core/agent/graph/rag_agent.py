@@ -4,7 +4,7 @@
 # @File   : rag_agent.py
 
 """
-这里是文件说明
+核心Agentic RAG Agent
 """
 
 from typing import Annotated, Sequence, TypedDict, Literal

@@ -19,7 +19,7 @@ class LLMConfig(BaseSettings):
 
     # LLM config
     LLM_MODEL: str | None = None
-    LLM_MODEL_PRO: str | None = "glm-4.6"
+    LLM_MODEL_PRO: str | None = "glm-4.7"
     FREE_LLM_MODEL: str | None = "Qwen/Qwen3-8B"
     DEFAULT_LLM_TEMPERATURE: float = 0.0
     MAX_TOKENS: int | None = 100000
